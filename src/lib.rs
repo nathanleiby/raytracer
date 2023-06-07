@@ -98,3 +98,24 @@ impl Sub for Vec3 {
 
 pub type Point3 = Vec3;
 pub type Color = Vec3;
+
+pub struct Ray {
+    orig: Point3,
+    dir: Vec3,
+}
+
+impl Ray {
+    pub fn new(orig: Point3, dir: Vec3) -> Ray {
+        Ray { orig, dir }
+    }
+
+    pub fn at(self, t: f64) -> Point3 {
+        self.orig.add(self.dir.mul(t))
+    }
+
+    pub fn color(self) -> Color {
+        let unit_direction = self.dir.unit_vector();
+        let t = 0.5 * (unit_direction.y + 1.0);
+        Color::new(1.0, 1.0, 1.0).mul(1.0 - t) + Color::new(0.5, 0.7, 1.0).mul(t)
+    }
+}
