@@ -101,8 +101,10 @@ impl Ray {
     }
 
     pub fn color(self) -> Color {
-        if hit_sphere(Point3::new(0.0, 0.0, -1.0), 0.5, self.clone()) {
-            return RED_COLOR;
+        let t = hit_sphere(Point3::new(0.0, 0.0, -1.0), 0.5, self);
+        if t > 0.0 {
+            let n = self.at(t) - Vec3::new(0.0, 0.0, -1.0);
+            return (n + Color::new(1.0, 1.0, 1.0)).mul(0.5);
         }
 
         let unit_direction = self.dir.unit_vector();
@@ -111,13 +113,121 @@ impl Ray {
     }
 }
 
-fn hit_sphere(center: Point3, radius: f64, ray: Ray) -> bool {
+fn hit_sphere(center: Point3, radius: f64, ray: Ray) -> f64 {
     let oc = ray.orig - center;
     let a = dot(ray.dir, ray.dir);
-    // let b = 2.0 * dot(oc, ray.dir);
     let half_b = dot(oc, ray.dir);
     let c = dot(oc, oc) - radius * radius;
-    // let discriminant = b * b - 4.0 * a * c;
     let discriminant = half_b * half_b - a * c;
-    discriminant > 0.0
+    if discriminant < 0.0 {
+        -1.0
+    } else {
+        // quadratic formula (simplified), just one solution for now
+        (-half_b - f64::sqrt(discriminant)) / a
+    }
+}
+
+#[derive(Copy, Clone)]
+struct HitRecord {
+    p: Point3,
+    normal: Vec3,
+    t: f64,
+    front_face: bool,
+}
+
+impl HitRecord {
+    fn with_face_normal(self: Self, r: Ray, outward_normal: Vec3) -> HitRecord {
+        let front_face = dot(r.dir, outward_normal) < 0.0;
+        let normal = if self.front_face {
+            outward_normal
+        } else {
+            outward_normal
+        };
+
+        HitRecord {
+            p: self.p,
+            normal,
+            t: self.t,
+            front_face,
+        }
+    }
+}
+
+trait Hittable {
+    fn hit(&mut self, r: Ray, t_min: f64, t_max: f64) -> Option<HitRecord>;
+}
+
+struct Sphere {
+    center: Point3,
+    radius: f64,
+}
+
+impl Hittable for Sphere {
+    fn hit(&mut self, ray: Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
+        let oc = ray.orig - self.center;
+        let a = dot(ray.dir, ray.dir);
+        let half_b = dot(oc, ray.dir);
+        let c = dot(oc, oc) - self.radius * self.radius;
+        let discriminant = half_b * half_b - a * c;
+        if discriminant < 0.0 {
+            return None;
+        }
+
+        let sqrtd = f64::sqrt(discriminant);
+
+        // try first root.. does it fall in time range?
+        let mut root = (-half_b - sqrtd) / a;
+        if root < t_min || t_max < root {
+            // try 2nd root
+            root = (-half_b + sqrtd) / a;
+            if (root < t_min || t_max < root) {
+                return None;
+            }
+        }
+
+        let t = root;
+        let p = ray.at(t);
+        let hr = HitRecord {
+            t,
+            p,
+            normal: (p - self.center).div(self.radius),
+            front_face: false,
+        };
+        let outward_normal = (p - self.center).div(self.radius);
+
+        Some(HitRecord::with_face_normal(hr, ray, outward_normal))
+    }
+}
+
+struct HitList {
+    objects: Vec<Box<dyn Hittable>>,
+}
+
+impl HitList {
+    fn clear(mut self: Self) {
+        self.objects.clear();
+    }
+    fn add(self: &mut Self, obj: Box<dyn Hittable>) {
+        self.objects.push(obj);
+    }
+}
+impl Hittable for HitList {
+    fn hit(&mut self, ray: Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
+        let mut closest_so_far = None;
+        for obj in self.objects.as_mut_slice() {
+            match obj.hit(ray, t_min, t_max) {
+                None => (),
+                Some(current) => match closest_so_far {
+                    None => closest_so_far = Some(current),
+                    Some(prev) => {
+                        if current.t < prev.t {
+                            closest_so_far = Some(current)
+                        }
+                    }
+                },
+            }
+        }
+
+        closest_so_far
+    }
 }
