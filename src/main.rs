@@ -35,7 +35,10 @@ fn main() {
         for i in 0..image_width {
             let u = i as f64 / (image_width as f64 - 1.0); // how horizontal? (0 to 1)
             let v = j as f64 / (image_height as f64 - 1.0); // how vertical? (0 to 1)
-            let ray = Ray::new(origin, horizontal.mul(u) + vertical.mul(v) - origin);
+            let ray = Ray::new(
+                origin,
+                lower_left_corner + horizontal.mul(u) + vertical.mul(v) - origin,
+            );
             write_color(ray.color());
         }
     }
