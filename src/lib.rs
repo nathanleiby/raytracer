@@ -1,5 +1,14 @@
 use std::ops::{Add, Sub};
 
+// Constants
+const INF: f64 = f64::INFINITY;
+const PI: f64 = 3.14159265358979323846264338327950288f64;
+
+// Utility
+fn degrees_to_radians(degrees: f64) -> f64 {
+    degrees / 180.0 * PI
+}
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Vec3 {
     pub x: f64,
@@ -79,12 +88,6 @@ impl Sub for Vec3 {
 pub type Point3 = Vec3;
 pub type Color = Vec3;
 
-const RED_COLOR: Color = Color {
-    x: 1.0,
-    y: 0.0,
-    z: 0.0,
-};
-
 #[derive(Debug, Copy, Clone)]
 pub struct Ray {
     orig: Point3,
@@ -100,35 +103,20 @@ impl Ray {
         self.orig + self.dir.mul(t)
     }
 
-    pub fn color(self) -> Color {
-        let t = hit_sphere(Point3::new(0.0, 0.0, -1.0), 0.5, self);
-        if t > 0.0 {
-            let n = self.at(t) - Vec3::new(0.0, 0.0, -1.0);
-            return (n + Color::new(1.0, 1.0, 1.0)).mul(0.5);
+    pub fn color(self, world: &mut impl Hittable) -> Color {
+        match world.hit(self, 0.0, INF) {
+            Some(hit_record) => (hit_record.normal + Color::new(1.0, 1.0, 1.0)).mul(0.5),
+            None => {
+                let unit_direction = self.dir.unit_vector();
+                let t = 0.5 * (unit_direction.y + 1.0);
+                Color::new(1.0, 1.0, 1.0).mul(1.0 - t) + Color::new(0.5, 0.7, 1.0).mul(t)
+            }
         }
-
-        let unit_direction = self.dir.unit_vector();
-        let t = 0.5 * (unit_direction.y + 1.0);
-        Color::new(1.0, 1.0, 1.0).mul(1.0 - t) + Color::new(0.5, 0.7, 1.0).mul(t)
-    }
-}
-
-fn hit_sphere(center: Point3, radius: f64, ray: Ray) -> f64 {
-    let oc = ray.orig - center;
-    let a = dot(ray.dir, ray.dir);
-    let half_b = dot(oc, ray.dir);
-    let c = dot(oc, oc) - radius * radius;
-    let discriminant = half_b * half_b - a * c;
-    if discriminant < 0.0 {
-        -1.0
-    } else {
-        // quadratic formula (simplified), just one solution for now
-        (-half_b - f64::sqrt(discriminant)) / a
     }
 }
 
 #[derive(Copy, Clone)]
-struct HitRecord {
+pub struct HitRecord {
     p: Point3,
     normal: Vec3,
     t: f64,
@@ -153,13 +141,13 @@ impl HitRecord {
     }
 }
 
-trait Hittable {
+pub trait Hittable {
     fn hit(&mut self, r: Ray, t_min: f64, t_max: f64) -> Option<HitRecord>;
 }
 
-struct Sphere {
-    center: Point3,
-    radius: f64,
+pub struct Sphere {
+    pub center: Point3,
+    pub radius: f64,
 }
 
 impl Hittable for Sphere {
@@ -199,18 +187,24 @@ impl Hittable for Sphere {
     }
 }
 
-struct HitList {
+pub struct HitList {
     objects: Vec<Box<dyn Hittable>>,
 }
 
 impl HitList {
-    fn clear(mut self: Self) {
+    pub fn new() -> HitList {
+        HitList {
+            objects: Vec::new(),
+        }
+    }
+    pub fn clear(mut self: Self) {
         self.objects.clear();
     }
-    fn add(self: &mut Self, obj: Box<dyn Hittable>) {
+    pub fn add(self: &mut Self, obj: Box<dyn Hittable>) {
         self.objects.push(obj);
     }
 }
+
 impl Hittable for HitList {
     fn hit(&mut self, ray: Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
         let mut closest_so_far = None;

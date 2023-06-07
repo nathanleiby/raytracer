@@ -1,10 +1,21 @@
-use rt::{Color, Point3, Ray, Vec3};
+use rt::{Color, HitList, Point3, Ray, Sphere, Vec3};
 
 fn main() {
     // Image
     let aspect_ratio = 16.0 / 9.0;
     let image_height: i64 = 256;
     let image_width: i64 = (image_height as f64 * aspect_ratio) as i64;
+
+    // World
+    let mut world = HitList::new();
+    world.add(Box::new(Sphere {
+        center: Point3::new(0.0, 0.0, -1.0),
+        radius: 0.5,
+    }));
+    world.add(Box::new(Sphere {
+        center: Point3::new(0.0, -100.5, -1.0),
+        radius: 100.0,
+    }));
 
     // Camera
 
@@ -39,7 +50,7 @@ fn main() {
                 origin,
                 lower_left_corner + horizontal.mul(u) + vertical.mul(v) - origin,
             );
-            write_color(ray.color());
+            write_color(ray.color(&mut world));
         }
     }
     eprintln!("Done.");
