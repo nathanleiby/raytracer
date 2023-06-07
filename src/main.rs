@@ -1,115 +1,63 @@
-use std::ops::{Add, Mul, Sub};
+use rt::{Color, Point3, Vec3};
 
-const IMAGE_HEIGHT: i64 = 256;
-const IMAGE_WIDTH: i64 = 256;
-
-// TODO: move to a lib
-#[derive(Debug, Copy, Clone, PartialEq)]
-struct Vec3 {
-    x: f64,
-    y: f64,
-    z: f64,
+pub struct Ray {
+    orig: Point3,
+    dir: Vec3,
 }
 
-impl Vec3 {
-    fn new(x: f64, y: f64, z: f64) -> Vec3 {
-        Vec3 { x, y, z }
-    }
-    fn len(self) -> f64 {
-        f64::sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
+impl Ray {
+    pub fn new(orig: Point3, dir: Vec3) -> Ray {
+        Ray { orig, dir }
     }
 
-    fn add(self, other: Vec3) -> Vec3 {
-        Vec3 {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
-        }
+    pub fn at(self, t: f64) -> Point3 {
+        self.orig.add(self.dir.mul(t))
     }
 
-    fn selfadd(self) -> Vec3 {
-        let clone = self.clone();
-        self.add(clone)
-    }
-
-    fn mult(self, t: f64) -> Vec3 {
-        Vec3 {
-            x: self.x * t,
-            y: self.y * t,
-            z: self.z * t,
-        }
-    }
-
-    fn negate(self) -> Vec3 {
-        self.mult(-1.0)
-    }
-
-    fn div(self, t: f64) -> Vec3 {
-        Vec3 {
-            x: self.x / t,
-            y: self.y / t,
-            z: self.z / t,
-        }
+    pub fn color(self) -> Color {
+        let unit_direction = self.dir.unit_vector();
+        let t = 0.5 * (unit_direction.y + 1.0);
+        Color::new(1.0, 1.0, 1.0).mul(1.0 - t) + Color::new(0.5, 0.7, 1.0).mul(t)
     }
 }
-
-// Operator Overloading via Traits
-impl Add for Vec3 {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        Self {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
-        }
-    }
-}
-
-impl Sub for Vec3 {
-    type Output = Self;
-    fn sub(self, other: Self) -> Self {
-        Self {
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z,
-        }
-    }
-}
-
-// impl Mul for Vec3 {
-//     type Output = Self;
-//     fn mul(self, t: f64) -> Self {
-//         Self {
-//             x: self.x * t,
-//             y: self.y * t,
-//             z: self.z * t,
-//         }
-//     }
-// }
-
-// type Point3 = Vec3; // TODO
-type Color = Vec3;
 
 fn main() {
+    // Image
+    let aspect_ratio = 16.0 / 9.0;
+    let image_height: i64 = 256;
+    let image_width: i64 = (image_height as f64 * aspect_ratio) as i64;
+
+    // Camera
+
+    let viewport_height = 2.0;
+    let viewport_width = aspect_ratio * viewport_height;
+    let focal_length = 1.0;
+
+    let origin = Point3::new(0.0, 0.0, 0.0);
+    let horizontal = Vec3::new(viewport_width, 0.0, 0.0);
+    let vertical = Vec3::new(0.0, viewport_height, 0.0);
+    let lower_left_corner =
+        origin - horizontal.div(2.0) - vertical.div(2.0) - Vec3::new(0.0, 0.0, focal_length);
+
     // Render
 
     // colors are in ascii
     println!("P3");
 
     // columns, rows
-    println!("{} {}", IMAGE_WIDTH, IMAGE_HEIGHT);
+    println!("{} {}", image_width, image_height);
 
     // max color
     println!("255");
 
     // RGB triplets
-    for j in (0..IMAGE_HEIGHT).rev() {
+    for j in (0..image_height).rev() {
         eprintln!("Lines remaining: {j}...");
-        for i in 0..IMAGE_WIDTH {
-            let r: f64 = i as f64 / (IMAGE_WIDTH - 1) as f64;
-            let g: f64 = j as f64 / (IMAGE_WIDTH - 1) as f64;
-            let b = 0.25;
-            write_color(Color::new(r, g, b))
+        for i in 0..image_width {
+            let u = i as f64 / (image_width as f64 - 1.0); // how horizontal? (0 to 1)
+            let v = j as f64 / (image_height as f64 - 1.0); // how vertical? (0 to 1)
+            let ray = Ray::new(origin, horizontal.mul(u) + vertical.mul(v) - origin);
+            write_color(ray.color());
         }
     }
     eprintln!("Done.");
