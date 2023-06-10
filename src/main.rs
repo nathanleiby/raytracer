@@ -60,9 +60,9 @@ fn write_color(color: Color, samples_per_pixel: f64) {
 
     // Divide the color by the number of samples and gamma-correct for gamma=2.0.
     let scale = 1.0 / samples_per_pixel;
-    r *= f64::sqrt(scale * r);
-    g *= f64::sqrt(scale * g);
-    b *= f64::sqrt(scale * b);
+    r = f64::sqrt(scale * r);
+    g = f64::sqrt(scale * g);
+    b = f64::sqrt(scale * b);
 
     let ir = (256.0 * rt::clamp(r, 0.0, 0.999)) as i64;
     let ig = (256.0 * rt::clamp(g, 0.0, 0.999)) as i64;
