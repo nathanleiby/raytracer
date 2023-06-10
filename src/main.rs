@@ -1,10 +1,8 @@
-use rt::{Color, HitList, Point3, Ray, Sphere, Vec3};
+use rand::Rng;
+use rt::{Camera, Color, HitList, Point3, Sphere};
 
 fn main() {
-    // Image
-    let aspect_ratio = 16.0 / 9.0;
-    let image_height: i64 = 256;
-    let image_width: i64 = (image_height as f64 * aspect_ratio) as i64;
+    let mut rng = rand::thread_rng();
 
     // World
     let mut world = HitList::new();
@@ -17,17 +15,14 @@ fn main() {
         radius: 100.0,
     }));
 
+    // Image
+    let aspect_ratio = 16.0 / 9.0;
+    let image_height: i64 = 256;
+    let image_width: i64 = (image_height as f64 * aspect_ratio) as i64;
+    let samples_per_pixel = 100.0;
+
     // Camera
-
-    let viewport_height = 2.0;
-    let viewport_width = aspect_ratio * viewport_height;
-    let focal_length = 1.0;
-
-    let origin = Point3::new(0.0, 0.0, 0.0);
-    let horizontal = Vec3::new(viewport_width, 0.0, 0.0);
-    let vertical = Vec3::new(0.0, viewport_height, 0.0);
-    let lower_left_corner =
-        origin - horizontal.div(2.0) - vertical.div(2.0) - Vec3::new(0.0, 0.0, focal_length);
+    let camera = Camera::new(aspect_ratio);
 
     // Render
 
@@ -44,22 +39,32 @@ fn main() {
     for j in (0..image_height).rev() {
         eprintln!("Lines remaining: {j}...");
         for i in 0..image_width {
-            let u = i as f64 / (image_width as f64 - 1.0); // how horizontal? (0 to 1)
-            let v = j as f64 / (image_height as f64 - 1.0); // how vertical? (0 to 1)
-            let ray = Ray::new(
-                origin,
-                lower_left_corner + horizontal.mul(u) + vertical.mul(v) - origin,
-            );
-            write_color(ray.color(&mut world));
+            let mut pixel_color = Color::new(0.0, 0.0, 0.0);
+            for _ in 0..100 {
+                let u = (i as f64 + rng.gen::<f64>()) / (image_width as f64 - 1.0); // how horizontal? (0 to 1)
+                let v = (j as f64 + rng.gen::<f64>()) / (image_height as f64 - 1.0); // how vertical? (0 to 1)
+                let ray = camera.get_ray(u, v);
+                pixel_color = pixel_color + ray.color(&mut world)
+            }
+            write_color(pixel_color, samples_per_pixel);
         }
     }
     eprintln!("Done.");
 }
 
-fn write_color(color: Color) {
-    let ir = (255.999 * color.x) as i64;
-    let ig = (255.999 * color.y) as i64;
-    let ib = (255.999 * color.z) as i64;
+fn write_color(color: Color, samples_per_pixel: f64) {
+    let mut r = color.x;
+    let mut g = color.y;
+    let mut b = color.z;
+
+    let scale = 1.0 / samples_per_pixel;
+    r *= scale;
+    g *= scale;
+    b *= scale;
+
+    let ir = (256.0 * rt::clamp(r, 0.0, 0.999)) as i64;
+    let ig = (256.0 * rt::clamp(g, 0.0, 0.999)) as i64;
+    let ib = (256.0 * rt::clamp(b, 0.0, 0.999)) as i64;
 
     println!("{ir} {ig} {ib}");
 }
