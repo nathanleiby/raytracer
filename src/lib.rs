@@ -52,6 +52,14 @@ impl Vec3 {
         }
     }
 
+    pub fn new_random_in_hemisphere(normal: Vec3) -> Vec3 {
+        let v = Self::new_random_in_unit_sphere();
+        if dot(v, normal) > 0.0 {
+            return v;
+        }
+        v.mul(-1.0)
+    }
+
     pub fn new_random_unit_vector() -> Vec3 {
         Self::new_random_in_unit_sphere().unit_vector()
     }
@@ -146,7 +154,7 @@ impl Ray {
 
         match world.hit(self, 0.001, INF) {
             Some(rec) => {
-                let target = rec.p + rec.normal + Vec3::new_random_unit_vector();
+                let target = rec.p + Vec3::new_random_in_hemisphere(rec.normal);
                 let ray = Ray::new(rec.p, target - rec.p);
                 ray.color(world, depth - 1).mul(0.5)
             }
