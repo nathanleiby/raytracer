@@ -1,0 +1,6 @@
+- [ ] oxidize my code more
+  - [ ] .. get rid of some copy/clone?
+- [ ] improve perf
+  - [ ] (improve rustiness)
+  - [ ] f32 vs f64?
+  - [ ]

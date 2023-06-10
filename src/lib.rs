@@ -1,5 +1,7 @@
 use std::ops::{Add, Sub};
 
+use rand::Rng;
+
 // Constants
 const INF: f64 = f64::INFINITY;
 const PI: f64 = 3.14159265358979323846264338327950288f64;
@@ -19,6 +21,35 @@ pub struct Vec3 {
 impl Vec3 {
     pub fn new(x: f64, y: f64, z: f64) -> Vec3 {
         Vec3 { x, y, z }
+    }
+
+    pub fn new_random() -> Vec3 {
+        let mut rng = rand::thread_rng();
+
+        Vec3 {
+            x: rng.gen::<f64>(),
+            y: rng.gen::<f64>(),
+            z: rng.gen::<f64>(),
+        }
+    }
+
+    pub fn new_random_bounded(min: f64, max: f64) -> Vec3 {
+        let mut rng = rand::thread_rng();
+
+        Vec3 {
+            x: rng.gen_range(min..max),
+            y: rng.gen_range(min..max),
+            z: rng.gen_range(min..max),
+        }
+    }
+
+    pub fn new_random_in_unit_sphere() -> Vec3 {
+        loop {
+            let v = Self::new_random();
+            if v.dot(v) < 1.0 {
+                return v;
+            }
+        }
     }
 
     pub fn len(self) -> f64 {
@@ -103,9 +134,18 @@ impl Ray {
         self.orig + self.dir.mul(t)
     }
 
-    pub fn color(self, world: &mut impl Hittable) -> Color {
+    pub fn color(self, world: &mut impl Hittable, depth: i32) -> Color {
+        // If we've exceeded the ray bounce limit, no more light is gathered.
+        if depth <= 0 {
+            return Color::new(0.0, 0.0, 0.0);
+        }
+
         match world.hit(self, 0.0, INF) {
-            Some(hit_record) => (hit_record.normal + Color::new(1.0, 1.0, 1.0)).mul(0.5),
+            Some(rec) => {
+                let target = rec.p + rec.normal + Vec3::new_random_in_unit_sphere();
+                let ray = Ray::new(rec.p, target - rec.p);
+                ray.color(world, depth - 1).mul(0.5)
+            }
             None => {
                 let unit_direction = self.dir.unit_vector();
                 let t = 0.5 * (unit_direction.y + 1.0);

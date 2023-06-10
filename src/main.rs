@@ -20,6 +20,7 @@ fn main() {
     let image_height: i64 = 256;
     let image_width: i64 = (image_height as f64 * aspect_ratio) as i64;
     let samples_per_pixel = 100.0;
+    let max_depth = 50;
 
     // Camera
     let camera = Camera::new(aspect_ratio);
@@ -44,7 +45,7 @@ fn main() {
                 let u = (i as f64 + rng.gen::<f64>()) / (image_width as f64 - 1.0); // how horizontal? (0 to 1)
                 let v = (j as f64 + rng.gen::<f64>()) / (image_height as f64 - 1.0); // how vertical? (0 to 1)
                 let ray = camera.get_ray(u, v);
-                pixel_color = pixel_color + ray.color(&mut world)
+                pixel_color = pixel_color + ray.color(&mut world, max_depth)
             }
             write_color(pixel_color, samples_per_pixel);
         }
@@ -57,10 +58,11 @@ fn write_color(color: Color, samples_per_pixel: f64) {
     let mut g = color.y;
     let mut b = color.z;
 
+    // Divide the color by the number of samples and gamma-correct for gamma=2.0.
     let scale = 1.0 / samples_per_pixel;
-    r *= scale;
-    g *= scale;
-    b *= scale;
+    r *= f64::sqrt(scale * r);
+    g *= f64::sqrt(scale * g);
+    b *= f64::sqrt(scale * b);
 
     let ir = (256.0 * rt::clamp(r, 0.0, 0.999)) as i64;
     let ig = (256.0 * rt::clamp(g, 0.0, 0.999)) as i64;
