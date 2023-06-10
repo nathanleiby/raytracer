@@ -52,6 +52,10 @@ impl Vec3 {
         }
     }
 
+    pub fn new_random_unit_vector() -> Vec3 {
+        Self::new_random_in_unit_sphere().unit_vector()
+    }
+
     pub fn len(self) -> f64 {
         f64::sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
     }
@@ -140,9 +144,9 @@ impl Ray {
             return Color::new(0.0, 0.0, 0.0);
         }
 
-        match world.hit(self, 0.0, INF) {
+        match world.hit(self, 0.001, INF) {
             Some(rec) => {
-                let target = rec.p + rec.normal + Vec3::new_random_in_unit_sphere();
+                let target = rec.p + rec.normal + Vec3::new_random_unit_vector();
                 let ray = Ray::new(rec.p, target - rec.p);
                 ray.color(world, depth - 1).mul(0.5)
             }
