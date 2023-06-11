@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use rand::Rng;
-use rt::{Camera, Color, HitList, Lambertian, Metal, Point3, Sphere};
+use rt::{Camera, Color, Dialectric, HitList, Lambertian, Metal, Point3, Sphere};
 
 fn main() {
     let mut rng = rand::thread_rng();
@@ -18,13 +18,13 @@ fn main() {
     world.add(Box::new(Sphere {
         center: Point3::new(0.0, 0.0, -1.0),
         radius: 0.5,
-        mat_ptr: Rc::new(Lambertian::new(Color::new(0.7, 0.3, 0.3))),
+        mat_ptr: Rc::new(Dialectric::new(1.5)),
     }));
     // left (metal)
     world.add(Box::new(Sphere {
         center: Point3::new(-1.0, 0.0, -1.0),
         radius: 0.5,
-        mat_ptr: Rc::new(Metal::new(Color::new(0.8, 0.8, 0.8), 0.3)),
+        mat_ptr: Rc::new(Dialectric::new(1.5)),
     }));
     // right (metal)
     world.add(Box::new(Sphere {
@@ -37,8 +37,11 @@ fn main() {
     let aspect_ratio = 16.0 / 9.0;
     let image_height: i64 = 256;
     let image_width: i64 = (image_height as f64 * aspect_ratio) as i64;
+
+    // TODO: speed up debugging...
     let samples_per_pixel = 100.0;
-    let max_depth = 50;
+    // let max_depth = 50;
+    let max_depth = 5;
 
     // Camera
     let camera = Camera::new(aspect_ratio);

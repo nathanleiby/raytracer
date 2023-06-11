@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    ops::{Add, Sub},
+    ops::{Add, Div, Mul, Neg, Sub},
     rc::Rc,
 };
 
@@ -61,7 +61,7 @@ impl Vec3 {
         if dot(v, normal) > 0.0 {
             return v;
         }
-        v.mul(-1.0)
+        -v
     }
 
     pub fn new_random_unit_vector() -> Vec3 {
@@ -72,32 +72,12 @@ impl Vec3 {
         f64::sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
     }
 
-    pub fn mul(self, t: f64) -> Vec3 {
-        Vec3 {
-            x: self.x * t,
-            y: self.y * t,
-            z: self.z * t,
-        }
-    }
-
-    pub fn mulvec3(self, v: Vec3) -> Vec3 {
-        Vec3 {
-            x: self.x * v.x,
-            y: self.y * v.y,
-            z: self.z * v.z,
-        }
-    }
-
-    pub fn div(self, t: f64) -> Vec3 {
-        self.mul(1.0 / t)
-    }
-
-    pub fn negate(self) -> Vec3 {
-        self.mul(-1.0)
-    }
-
     pub fn dot(self, other: Vec3) -> f64 {
         dot(self, other)
+    }
+
+    pub fn length_squared(self) -> f64 {
+        dot(self, self)
     }
 
     pub fn cross(self, other: Vec3) -> Vec3 {
@@ -109,7 +89,7 @@ impl Vec3 {
     }
 
     pub fn unit_vector(self) -> Vec3 {
-        self.div(self.len())
+        self / self.len()
     }
 
     pub fn near_zero(self) -> bool {
@@ -121,8 +101,18 @@ impl Vec3 {
 pub fn dot(u: Vec3, v: Vec3) -> f64 {
     u.x * v.x + u.y * v.y + u.z * v.z
 }
+
 pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
-    v.sub(n.mul(2.0 * dot(v, n)))
+    v - (n * 2.0 * dot(v, n))
+}
+
+pub fn refract(uv: Vec3, n: Vec3, etai_over_etat: f64) -> Vec3 {
+    let cos_theta = f64::min(dot(-uv, n), 1.0);
+    let r_out_perp = (uv + n * cos_theta) * etai_over_etat;
+
+    let r_out_parallel = n * -f64::sqrt(f64::abs(1.0 - r_out_perp.length_squared()));
+
+    return r_out_perp + r_out_parallel;
 }
 
 // Operator Overloading via Traits
@@ -148,6 +138,56 @@ impl Sub for Vec3 {
     }
 }
 
+// Multiplication with scalar
+impl Mul<f64> for Vec3 {
+    type Output = Vec3;
+
+    fn mul(self, f: f64) -> Vec3 {
+        Vec3 {
+            x: self.x * f,
+            y: self.y * f,
+            z: self.z * f,
+        }
+    }
+}
+
+// Multiplication with vector
+impl Mul<Vec3> for Vec3 {
+    type Output = Vec3;
+
+    fn mul(self, other: Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x * other.x,
+            y: self.y * other.x,
+            z: self.z * other.x,
+        }
+    }
+}
+
+impl Div<f64> for Vec3 {
+    type Output = Vec3;
+
+    fn div(self, f: f64) -> Vec3 {
+        Vec3 {
+            x: self.x / f,
+            y: self.y / f,
+            z: self.z / f,
+        }
+    }
+}
+
+impl Neg for Vec3 {
+    type Output = Self;
+
+    fn neg(self) -> Vec3 {
+        Vec3 {
+            x: self.x * -1.0,
+            y: self.y * -1.0,
+            z: self.z * -1.0,
+        }
+    }
+}
+
 pub type Point3 = Vec3;
 pub type Color = Vec3;
 
@@ -163,7 +203,7 @@ impl Ray {
     }
 
     pub fn at(&self, t: f64) -> Point3 {
-        self.orig + self.dir.mul(t)
+        self.orig + self.dir * t
     }
 
     pub fn color(self, world: &mut impl Hittable, depth: i32) -> Color {
@@ -177,16 +217,13 @@ impl Ray {
             Some(rec) => {
                 let out = rec.mat_ptr.scatter(&self, &rec);
                 match out.scattered {
-                    Some(scattered) => out
-                        .attenuation
-                        .unwrap()
-                        .mulvec3(scattered.color(world, depth - 1)),
+                    Some(scattered) => out.attenuation.unwrap() * scattered.color(world, depth - 1),
                     None => Color::new(0.0, 0.0, 0.0),
                 }
             }
             None => {
                 let t = 0.5 * (unit_direction.y + 1.0);
-                Color::new(1.0, 1.0, 1.0).mul(1.0 - t) + Color::new(0.5, 0.7, 1.0).mul(t)
+                Color::new(1.0, 1.0, 1.0) * (1.0 - t) + Color::new(0.5, 0.7, 1.0) * t
             }
         }
     }
@@ -233,8 +270,8 @@ pub struct Lambertian {
 }
 
 impl Lambertian {
-    pub fn new(albedo: Color) -> Lambertian {
-        Lambertian { albedo }
+    pub fn new(albedo: Color) -> Self {
+        Self { albedo }
     }
 }
 
@@ -260,8 +297,8 @@ pub struct Metal {
 }
 
 impl Metal {
-    pub fn new(albedo: Color, fuzz: f64) -> Metal {
-        Metal { albedo, fuzz }
+    pub fn new(albedo: Color, fuzz: f64) -> Self {
+        Self { albedo, fuzz }
     }
 }
 
@@ -271,7 +308,7 @@ impl Material for Metal {
 
         let scattered = Ray::new(
             rec.p,
-            reflected + Vec3::new_random_in_unit_sphere().mul(self.fuzz),
+            reflected + Vec3::new_random_in_unit_sphere() * self.fuzz,
         );
         ScatterResult {
             scattered: if dot(scattered.dir, rec.normal) > 0.0 {
@@ -280,6 +317,37 @@ impl Material for Metal {
                 None
             },
             attenuation: Some(self.albedo),
+        }
+    }
+}
+
+pub struct Dialectric {
+    index_of_refraction: f64,
+}
+
+impl Dialectric {
+    pub fn new(index_of_refraction: f64) -> Self {
+        Self {
+            index_of_refraction,
+        }
+    }
+}
+
+impl Material for Dialectric {
+    fn scatter(&self, r: &Ray, rec: &HitRecord) -> ScatterResult {
+        let refraction_ratio = if rec.front_face {
+            1.0 / self.index_of_refraction
+        } else {
+            self.index_of_refraction
+        };
+
+        let unit_direction = r.dir.unit_vector();
+        let refracted = refract(unit_direction, rec.normal, refraction_ratio);
+
+        let scattered = Ray::new(rec.p, refracted);
+        ScatterResult {
+            scattered: Some(scattered),
+            attenuation: Some(Color::new(1.0, 1.0, 1.0)),
         }
     }
 }
@@ -322,11 +390,11 @@ impl Hittable for Sphere {
         let hr = HitRecord {
             t,
             p,
-            normal: (p - self.center).div(self.radius),
+            normal: (p - self.center) / self.radius,
             front_face: false,
             mat_ptr: Rc::clone(&self.mat_ptr),
         };
-        let outward_normal = (p - self.center).div(self.radius);
+        let outward_normal = (p - self.center) / self.radius;
 
         Some(HitRecord::with_face_normal(hr, ray, outward_normal))
     }
@@ -383,7 +451,7 @@ impl Camera {
         let horizontal = Vec3::new(viewport_width, 0.0, 0.0);
         let vertical = Vec3::new(0.0, viewport_height, 0.0);
         let lower_left_corner =
-            origin - horizontal.div(2.0) - vertical.div(2.0) - Vec3::new(0.0, 0.0, focal_length);
+            origin - (horizontal / 2.0) - (vertical / 2.0) - Vec3::new(0.0, 0.0, focal_length);
 
         Camera {
             origin,
@@ -396,7 +464,7 @@ impl Camera {
     pub fn get_ray(self, u: f64, v: f64) -> Ray {
         Ray::new(
             self.origin,
-            self.lower_left_corner + self.horizontal.mul(u) + self.vertical.mul(v) - self.origin,
+            self.lower_left_corner + self.horizontal * u + self.vertical * v - self.origin,
         )
     }
 }
