@@ -1,9 +1,10 @@
 use std::{
     cmp::Ordering,
     ops::{Add, Sub},
+    rc::Rc,
 };
 
-use rand::Rng;
+use rand::{random, Rng};
 
 // Constants
 const INF: f64 = f64::INFINITY;
@@ -79,6 +80,14 @@ impl Vec3 {
         }
     }
 
+    pub fn mulvec3(self, v: Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x * v.x,
+            y: self.y * v.y,
+            z: self.z * v.z,
+        }
+    }
+
     pub fn div(self, t: f64) -> Vec3 {
         self.mul(1.0 / t)
     }
@@ -102,10 +111,18 @@ impl Vec3 {
     pub fn unit_vector(self) -> Vec3 {
         self.div(self.len())
     }
+
+    pub fn near_zero(self) -> bool {
+        let s = 1e-8;
+        f64::abs(self.x) < s && f64::abs(self.y) < s && f64::abs(self.z) < s
+    }
 }
 
 pub fn dot(u: Vec3, v: Vec3) -> f64 {
     u.x * v.x + u.y * v.y + u.z * v.z
+}
+pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
+    v.sub(n.mul(2.0 * dot(v, n)))
 }
 
 // Operator Overloading via Traits
@@ -158,9 +175,14 @@ impl Ray {
         let unit_direction = self.dir.unit_vector();
         match world.hit(&self, 0.001, INF) {
             Some(rec) => {
-                let target = rec.p + Vec3::new_random_in_hemisphere(rec.normal);
-                let ray = Ray::new(rec.p, target - rec.p);
-                ray.color(world, depth - 1).mul(0.5)
+                let out = rec.mat_ptr.scatter(&self, &rec);
+                match out.scattered {
+                    Some(scattered) => out
+                        .attenuation
+                        .unwrap()
+                        .mulvec3(scattered.color(world, depth - 1)),
+                    None => Color::new(0.0, 0.0, 0.0),
+                }
             }
             None => {
                 let t = 0.5 * (unit_direction.y + 1.0);
@@ -175,6 +197,7 @@ pub struct HitRecord {
     normal: Vec3,
     t: f64,
     front_face: bool,
+    mat_ptr: Rc<dyn Material>,
 }
 
 impl HitRecord {
@@ -191,6 +214,68 @@ impl HitRecord {
             normal,
             t: self.t,
             front_face,
+            mat_ptr: Rc::clone(&self.mat_ptr),
+        }
+    }
+}
+
+pub struct ScatterResult {
+    pub scattered: Option<Ray>,
+    pub attenuation: Option<Color>,
+}
+
+pub trait Material {
+    fn scatter(&self, r: &Ray, rec: &HitRecord) -> ScatterResult;
+}
+
+pub struct Lambertian {
+    albedo: Color,
+}
+
+impl Lambertian {
+    pub fn new(albedo: Color) -> Lambertian {
+        Lambertian { albedo }
+    }
+}
+
+impl Material for Lambertian {
+    fn scatter(&self, _r: &Ray, rec: &HitRecord) -> ScatterResult {
+        let random_scatter_direction = rec.normal + Vec3::new_random_unit_vector();
+        let scatter_direction = if random_scatter_direction.near_zero() {
+            rec.normal
+        } else {
+            random_scatter_direction
+        };
+
+        ScatterResult {
+            scattered: Some(Ray::new(rec.p, scatter_direction)),
+            attenuation: Some(self.albedo),
+        }
+    }
+}
+
+pub struct Metal {
+    albedo: Color,
+}
+
+impl Metal {
+    pub fn new(albedo: Color) -> Metal {
+        Metal { albedo }
+    }
+}
+
+impl Material for Metal {
+    fn scatter(&self, r: &Ray, rec: &HitRecord) -> ScatterResult {
+        let reflected = reflect(r.dir.unit_vector(), rec.normal);
+
+        let scattered = Ray::new(rec.p, reflected);
+        ScatterResult {
+            scattered: if dot(scattered.dir, rec.normal) > 0.0 {
+                Some(scattered)
+            } else {
+                None
+            },
+            attenuation: Some(self.albedo),
         }
     }
 }
@@ -202,6 +287,7 @@ pub trait Hittable {
 pub struct Sphere {
     pub center: Point3,
     pub radius: f64,
+    pub mat_ptr: Rc<dyn Material>,
 }
 
 impl Hittable for Sphere {
@@ -234,6 +320,7 @@ impl Hittable for Sphere {
             p,
             normal: (p - self.center).div(self.radius),
             front_face: false,
+            mat_ptr: Rc::clone(&self.mat_ptr),
         };
         let outward_normal = (p - self.center).div(self.radius);
 

@@ -1,18 +1,36 @@
+use std::rc::Rc;
+
 use rand::Rng;
-use rt::{Camera, Color, HitList, Point3, Sphere};
+use rt::{Camera, Color, HitList, Lambertian, Metal, Point3, Sphere};
 
 fn main() {
     let mut rng = rand::thread_rng();
 
     // World
     let mut world = HitList::new();
-    world.add(Box::new(Sphere {
-        center: Point3::new(0.0, 0.0, -1.0),
-        radius: 0.5,
-    }));
+    // ground
     world.add(Box::new(Sphere {
         center: Point3::new(0.0, -100.5, -1.0),
         radius: 100.0,
+        mat_ptr: Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0))),
+    }));
+    // center
+    world.add(Box::new(Sphere {
+        center: Point3::new(0.0, 0.0, -1.0),
+        radius: 0.5,
+        mat_ptr: Rc::new(Lambertian::new(Color::new(0.7, 0.3, 0.3))),
+    }));
+    // left (metal)
+    world.add(Box::new(Sphere {
+        center: Point3::new(-1.0, 0.0, -1.0),
+        radius: 0.5,
+        mat_ptr: Rc::new(Metal::new(Color::new(0.8, 0.8, 0.8))),
+    }));
+    // right (metal)
+    world.add(Box::new(Sphere {
+        center: Point3::new(1.0, 0.0, -1.0),
+        radius: 0.5,
+        mat_ptr: Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2))),
     }));
 
     // Image
