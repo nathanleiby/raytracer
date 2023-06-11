@@ -131,7 +131,7 @@ impl Sub for Vec3 {
 pub type Point3 = Vec3;
 pub type Color = Vec3;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct Ray {
     orig: Point3,
     dir: Vec3,
@@ -142,7 +142,7 @@ impl Ray {
         Ray { orig, dir }
     }
 
-    pub fn at(self, t: f64) -> Point3 {
+    pub fn at(&self, t: f64) -> Point3 {
         self.orig + self.dir.mul(t)
     }
 
@@ -152,14 +152,14 @@ impl Ray {
             return Color::new(0.0, 0.0, 0.0);
         }
 
-        match world.hit(self, 0.001, INF) {
+        let unit_direction = self.dir.unit_vector();
+        match world.hit(&self, 0.001, INF) {
             Some(rec) => {
                 let target = rec.p + Vec3::new_random_in_hemisphere(rec.normal);
                 let ray = Ray::new(rec.p, target - rec.p);
                 ray.color(world, depth - 1).mul(0.5)
             }
             None => {
-                let unit_direction = self.dir.unit_vector();
                 let t = 0.5 * (unit_direction.y + 1.0);
                 Color::new(1.0, 1.0, 1.0).mul(1.0 - t) + Color::new(0.5, 0.7, 1.0).mul(t)
             }
@@ -176,7 +176,7 @@ pub struct HitRecord {
 }
 
 impl HitRecord {
-    fn with_face_normal(self: Self, r: Ray, outward_normal: Vec3) -> HitRecord {
+    fn with_face_normal(self: Self, r: &Ray, outward_normal: Vec3) -> HitRecord {
         let front_face = dot(r.dir, outward_normal) < 0.0;
         let normal = if self.front_face {
             outward_normal
@@ -194,7 +194,7 @@ impl HitRecord {
 }
 
 pub trait Hittable {
-    fn hit(&mut self, r: Ray, t_min: f64, t_max: f64) -> Option<HitRecord>;
+    fn hit(&self, r: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord>;
 }
 
 pub struct Sphere {
@@ -203,7 +203,7 @@ pub struct Sphere {
 }
 
 impl Hittable for Sphere {
-    fn hit(&mut self, ray: Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
         let oc = ray.orig - self.center;
         let a = dot(ray.dir, ray.dir);
         let half_b = dot(oc, ray.dir);
@@ -220,7 +220,7 @@ impl Hittable for Sphere {
         if root < t_min || t_max < root {
             // try 2nd root
             root = (-half_b + sqrtd) / a;
-            if (root < t_min || t_max < root) {
+            if root < t_min || t_max < root {
                 return None;
             }
         }
@@ -258,9 +258,9 @@ impl HitList {
 }
 
 impl Hittable for HitList {
-    fn hit(&mut self, ray: Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
+    fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
         let mut closest_so_far = None;
-        for obj in self.objects.as_mut_slice() {
+        for obj in self.objects.iter() {
             match obj.hit(ray, t_min, t_max) {
                 None => (),
                 Some(current) => match closest_so_far {
