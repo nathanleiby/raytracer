@@ -1,4 +1,7 @@
-use std::ops::{Add, Sub};
+use std::{
+    cmp::Ordering,
+    ops::{Add, Sub},
+};
 
 use rand::Rng;
 
@@ -167,7 +170,6 @@ impl Ray {
     }
 }
 
-#[derive(Copy, Clone)]
 pub struct HitRecord {
     p: Point3,
     normal: Vec3,
@@ -259,22 +261,16 @@ impl HitList {
 
 impl Hittable for HitList {
     fn hit(&self, ray: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord> {
-        let mut closest_so_far = None;
-        for obj in self.objects.iter() {
-            match obj.hit(ray, t_min, t_max) {
-                None => (),
-                Some(current) => match closest_so_far {
-                    None => closest_so_far = Some(current),
-                    Some(prev) => {
-                        if current.t < prev.t {
-                            closest_so_far = Some(current)
-                        }
-                    }
-                },
-            }
-        }
+        // let mut closest_so_far = None;
+        let hits = self.objects.iter().map(|obj| obj.hit(ray, t_min, t_max));
+        let closest = hits.into_iter().min_by(|x, y| match (x, y) {
+            (None, None) => Ordering::Greater,
+            (Some(_x), None) => Ordering::Less,
+            (None, Some(_y)) => Ordering::Greater,
+            (Some(x), Some(y)) => x.t.total_cmp(&y.t),
+        });
 
-        closest_so_far
+        closest.unwrap()
     }
 }
 
