@@ -1,13 +1,14 @@
-use std::rc::Rc;
+use std::{env, rc::Rc};
 
 use rand::Rng;
 use rt::{Camera, Color, Dialectric, HitList, Lambertian, Metal, Point3, Sphere, COLOR_BLACK};
 
-// Performance impacting vars; useful to adjust for debugging..
-const MAX_DEPTH: i32 = 50;
-// const MAX_DEPTH: i32 = 5;
-
 fn main() {
+    let mut max_depth: i32 = 50;
+    if env::var("FAST_MODE").is_ok() {
+        max_depth = 5;
+    }
+
     let mut rng = rand::thread_rng();
 
     // World
@@ -28,7 +29,6 @@ fn main() {
     world.add(Box::new(Sphere {
         center: Point3::new(-1.0, 0.0, -1.0),
         radius: 0.5,
-        // mat_ptr: Rc::new(Dialectric::new(1.5)),
         mat_ptr: Rc::new(Dialectric::new(1.5)),
     }));
     // right (metal)
@@ -45,7 +45,7 @@ fn main() {
 
     // TODO: speed up debugging...
     let samples_per_pixel = 100.0;
-    let max_depth = MAX_DEPTH;
+    let max_depth = max_depth;
 
     // Camera
     let camera = Camera::new(aspect_ratio);

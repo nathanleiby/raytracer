@@ -85,7 +85,7 @@ impl Vec3 {
     }
 
     pub fn length_squared(self) -> f64 {
-        self.x * self.x + self.y * self.y + self.z * self.z
+        dot(self, self)
     }
 
     pub fn unit_vector(self) -> Vec3 {
@@ -114,13 +114,10 @@ pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     v - (n * 2.0 * dot(v, n))
 }
 
-pub fn refract(R: Vec3, n: Vec3, etai_over_etat: f64) -> Vec3 {
-    // fmin(dot(-unit_direction, rec.normal), 1.0);
-    let cos_theta = f64::min(dot(-R, n), 1.0);
-    let r_out_perp = etai_over_etat * (R + cos_theta * n);
-
+pub fn refract(uv: Vec3, n: Vec3, etai_over_etat: f64) -> Vec3 {
+    let cos_theta = f64::min(dot(-uv, n), 1.0);
+    let r_out_perp = etai_over_etat * (uv + cos_theta * n);
     let r_out_parallel = -f64::sqrt(f64::abs(1.0 - r_out_perp.length_squared())) * n;
-
     return r_out_perp + r_out_parallel;
 }
 
@@ -195,9 +192,9 @@ impl Neg for Vec3 {
 
     fn neg(self) -> Vec3 {
         Vec3 {
-            x: self.x * -1.0,
-            y: self.y * -1.0,
-            z: self.z * -1.0,
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
         }
     }
 }
