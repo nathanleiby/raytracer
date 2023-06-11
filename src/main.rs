@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use rand::Rng;
-use rt::{Camera, Color, Dialectric, HitList, Lambertian, Metal, Point3, Sphere};
+use rt::{Camera, Color, Dialectric, HitList, Lambertian, Metal, Point3, Sphere, COLOR_BLACK};
 
 // Performance impacting vars; useful to adjust for debugging..
 const MAX_DEPTH: i32 = 50;
@@ -65,7 +65,7 @@ fn main() {
     for j in (0..image_height).rev() {
         eprintln!("Lines remaining: {j}...");
         for i in 0..image_width {
-            let mut pixel_color = Color::new(0.0, 0.0, 0.0);
+            let mut pixel_color = COLOR_BLACK;
             for _ in 0..100 {
                 let u = (i as f64 + rng.gen::<f64>()) / (image_width as f64 - 1.0); // how horizontal? (0 to 1)
                 let v = (j as f64 + rng.gen::<f64>()) / (image_height as f64 - 1.0); // how vertical? (0 to 1)

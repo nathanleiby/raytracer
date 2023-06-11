@@ -10,6 +10,18 @@ use rand::{random, Rng};
 const INF: f64 = f64::INFINITY;
 const PI: f64 = 3.14159265358979323846264338327950288f64;
 
+pub const COLOR_BLACK: Color = Color {
+    x: 0.0,
+    y: 0.0,
+    z: 0.0,
+};
+
+const COLOR_WHITE: Color = Color {
+    x: 1.0,
+    y: 1.0,
+    z: 1.0,
+};
+
 // Utility
 fn degrees_to_radians(degrees: f64) -> f64 {
     degrees / 180.0 * PI
@@ -211,7 +223,7 @@ impl Ray {
     pub fn color(self, world: &mut impl Hittable, depth: i32) -> Color {
         // If we've exceeded the ray bounce limit, no more light is gathered.
         if depth <= 0 {
-            return Color::new(0.0, 0.0, 0.0);
+            return COLOR_BLACK;
         }
 
         let unit_direction = self.dir.unit_vector();
@@ -220,12 +232,12 @@ impl Ray {
                 let out = rec.mat_ptr.scatter(&self, &rec);
                 match out {
                     Some(out) => out.attenuation * out.scattered.color(world, depth - 1),
-                    None => Color::new(0.0, 0.0, 0.0),
+                    None => COLOR_BLACK,
                 }
             }
             None => {
                 let t = 0.5 * (unit_direction.y + 1.0);
-                Color::new(1.0, 1.0, 1.0) * (1.0 - t) + Color::new(0.5, 0.7, 1.0) * t
+                COLOR_WHITE * (1.0 - t) + Color::new(0.5, 0.7, 1.0) * t
             }
         }
     }
@@ -358,7 +370,7 @@ impl Material for Dialectric {
         let scattered = Ray::new(rec.p, direction);
         Some(ScatterResult {
             scattered,
-            attenuation: Color::new(1.0, 1.0, 1.0),
+            attenuation: COLOR_WHITE,
         })
     }
 }
