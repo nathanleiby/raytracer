@@ -50,7 +50,7 @@ impl Vec3 {
     pub fn new_random_in_unit_sphere() -> Vec3 {
         loop {
             let v = Self::new_random();
-            if v.dot(v) < 1.0 {
+            if dot(v, v) < 1.0 {
                 return v;
             }
         }
@@ -68,33 +68,29 @@ impl Vec3 {
         Self::new_random_in_unit_sphere().unit_vector()
     }
 
-    pub fn len(self) -> f64 {
-        f64::sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
-    }
-
-    pub fn dot(self, other: Vec3) -> f64 {
-        dot(self, other)
+    pub fn length(self) -> f64 {
+        f64::sqrt(self.length_squared())
     }
 
     pub fn length_squared(self) -> f64 {
-        dot(self, self)
-    }
-
-    pub fn cross(self, other: Vec3) -> Vec3 {
-        Vec3 {
-            x: self.y * other.z - self.z * other.y,
-            y: self.z * other.x - self.x * other.z,
-            z: self.x * other.y - self.y * other.x,
-        }
+        self.x * self.x + self.y * self.y + self.z * self.z
     }
 
     pub fn unit_vector(self) -> Vec3 {
-        self / self.len()
+        self / self.length()
     }
 
     pub fn near_zero(self) -> bool {
         let s = 1e-8;
         f64::abs(self.x) < s && f64::abs(self.y) < s && f64::abs(self.z) < s
+    }
+}
+
+pub fn cross(u: Vec3, v: Vec3) -> Vec3 {
+    Vec3 {
+        x: u.y * v.z - u.z * v.y,
+        y: u.z * v.x - u.x * v.z,
+        z: u.x * v.y - u.y * v.x,
     }
 }
 
@@ -106,11 +102,12 @@ pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     v - (n * 2.0 * dot(v, n))
 }
 
-pub fn refract(uv: Vec3, n: Vec3, etai_over_etat: f64) -> Vec3 {
-    let cos_theta = f64::min(dot(-uv, n), 1.0);
-    let r_out_perp = (uv + n * cos_theta) * etai_over_etat;
+pub fn refract(R: Vec3, n: Vec3, etai_over_etat: f64) -> Vec3 {
+    // fmin(dot(-unit_direction, rec.normal), 1.0);
+    let cos_theta = f64::min(dot(-R, n), 1.0);
+    let r_out_perp = etai_over_etat * (R + cos_theta * n);
 
-    let r_out_parallel = n * -f64::sqrt(f64::abs(1.0 - r_out_perp.length_squared()));
+    let r_out_parallel = -f64::sqrt(f64::abs(1.0 - r_out_perp.length_squared())) * n;
 
     return r_out_perp + r_out_parallel;
 }
@@ -151,6 +148,15 @@ impl Mul<f64> for Vec3 {
     }
 }
 
+// Multiplication with scalar (other direction)
+impl Mul<Vec3> for f64 {
+    type Output = Vec3;
+
+    fn mul(self, v: Vec3) -> Vec3 {
+        v * self // re-use above def
+    }
+}
+
 // Multiplication with vector
 impl Mul<Vec3> for Vec3 {
     type Output = Vec3;
@@ -158,8 +164,8 @@ impl Mul<Vec3> for Vec3 {
     fn mul(self, other: Vec3) -> Vec3 {
         Vec3 {
             x: self.x * other.x,
-            y: self.y * other.x,
-            z: self.z * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
         }
     }
 }
@@ -168,11 +174,7 @@ impl Div<f64> for Vec3 {
     type Output = Vec3;
 
     fn div(self, f: f64) -> Vec3 {
-        Vec3 {
-            x: self.x / f,
-            y: self.y / f,
-            z: self.z / f,
-        }
+        self * (1.0 / f)
     }
 }
 
@@ -216,8 +218,8 @@ impl Ray {
         match world.hit(&self, 0.001, INF) {
             Some(rec) => {
                 let out = rec.mat_ptr.scatter(&self, &rec);
-                match out.scattered {
-                    Some(scattered) => out.attenuation.unwrap() * scattered.color(world, depth - 1),
+                match out {
+                    Some(out) => out.attenuation * out.scattered.color(world, depth - 1),
                     None => Color::new(0.0, 0.0, 0.0),
                 }
             }
@@ -257,12 +259,12 @@ impl HitRecord {
 }
 
 pub struct ScatterResult {
-    pub scattered: Option<Ray>,
-    pub attenuation: Option<Color>,
+    pub scattered: Ray,
+    pub attenuation: Color,
 }
 
 pub trait Material {
-    fn scatter(&self, r: &Ray, rec: &HitRecord) -> ScatterResult;
+    fn scatter(&self, r: &Ray, rec: &HitRecord) -> Option<ScatterResult>;
 }
 
 pub struct Lambertian {
@@ -276,7 +278,7 @@ impl Lambertian {
 }
 
 impl Material for Lambertian {
-    fn scatter(&self, _r: &Ray, rec: &HitRecord) -> ScatterResult {
+    fn scatter(&self, _r: &Ray, rec: &HitRecord) -> Option<ScatterResult> {
         let random_scatter_direction = rec.normal + Vec3::new_random_unit_vector();
         let scatter_direction = if random_scatter_direction.near_zero() {
             rec.normal
@@ -284,10 +286,10 @@ impl Material for Lambertian {
             random_scatter_direction
         };
 
-        ScatterResult {
-            scattered: Some(Ray::new(rec.p, scatter_direction)),
-            attenuation: Some(self.albedo),
-        }
+        Some(ScatterResult {
+            scattered: Ray::new(rec.p, scatter_direction),
+            attenuation: self.albedo,
+        })
     }
 }
 
@@ -303,20 +305,20 @@ impl Metal {
 }
 
 impl Material for Metal {
-    fn scatter(&self, r: &Ray, rec: &HitRecord) -> ScatterResult {
+    fn scatter(&self, r: &Ray, rec: &HitRecord) -> Option<ScatterResult> {
         let reflected = reflect(r.dir.unit_vector(), rec.normal);
 
         let scattered = Ray::new(
             rec.p,
             reflected + Vec3::new_random_in_unit_sphere() * self.fuzz,
         );
-        ScatterResult {
-            scattered: if dot(scattered.dir, rec.normal) > 0.0 {
-                Some(scattered)
-            } else {
-                None
-            },
-            attenuation: Some(self.albedo),
+        if dot(scattered.dir, rec.normal) > 0.0 {
+            Some(ScatterResult {
+                scattered,
+                attenuation: self.albedo,
+            })
+        } else {
+            None
         }
     }
 }
@@ -334,7 +336,7 @@ impl Dialectric {
 }
 
 impl Material for Dialectric {
-    fn scatter(&self, r: &Ray, rec: &HitRecord) -> ScatterResult {
+    fn scatter(&self, r: &Ray, rec: &HitRecord) -> Option<ScatterResult> {
         let refraction_ratio = if rec.front_face {
             1.0 / self.index_of_refraction
         } else {
@@ -342,13 +344,22 @@ impl Material for Dialectric {
         };
 
         let unit_direction = r.dir.unit_vector();
-        let refracted = refract(unit_direction, rec.normal, refraction_ratio);
 
-        let scattered = Ray::new(rec.p, refracted);
-        ScatterResult {
-            scattered: Some(scattered),
-            attenuation: Some(Color::new(1.0, 1.0, 1.0)),
-        }
+        let cos_theta = f64::min(dot(-unit_direction, rec.normal), 1.0);
+        let sin_theta = f64::sqrt(1.0 - cos_theta * cos_theta);
+
+        let cannot_refract = refraction_ratio * sin_theta > 1.0;
+        let direction = if cannot_refract {
+            reflect(unit_direction, rec.normal)
+        } else {
+            refract(unit_direction, rec.normal, refraction_ratio)
+        };
+
+        let scattered = Ray::new(rec.p, direction);
+        Some(ScatterResult {
+            scattered,
+            attenuation: Color::new(1.0, 1.0, 1.0),
+        })
     }
 }
 
