@@ -1,4 +1,4 @@
-use std::{env, rc::Rc};
+use std::{env, f64::consts::PI, rc::Rc};
 
 use rand::Rng;
 use rt::{Camera, Color, Dialectric, HitList, Lambertian, Metal, Point3, Sphere, COLOR_BLACK};
@@ -21,34 +21,47 @@ fn main() {
 
     // World
     let mut world = HitList::new();
-    // ground
+    // // ground
+    // world.add(Box::new(Sphere {
+    //     center: Point3::new(0.0, -100.5, -1.0),
+    //     radius: 100.0,
+    //     mat_ptr: Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0))),
+    // }));
+    // // center
+    // world.add(Box::new(Sphere {
+    //     center: Point3::new(0.0, 0.0, -1.0),
+    //     radius: 0.5,
+    //     mat_ptr: Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5))),
+    // }));
+    // // left (glass)
+    // world.add(Box::new(Sphere {
+    //     center: Point3::new(-1.0, 0.0, -1.0),
+    //     radius: 0.5,
+    //     mat_ptr: Rc::new(Dialectric::new(1.5)),
+    // }));
+    // world.add(Box::new(Sphere {
+    //     center: Point3::new(-1.0, 0.0, -1.0),
+    //     radius: -0.4, // TODO: wat is a negative radius
+    //     mat_ptr: Rc::new(Dialectric::new(1.5)),
+    // }));
+    // // right (metal)
+    // world.add(Box::new(Sphere {
+    //     center: Point3::new(1.0, 0.0, -1.0),
+    //     radius: 0.5,
+    //     mat_ptr: Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 1.0)),
+    // }));
+
+    let radius1 = (PI / 4.0).cos();
     world.add(Box::new(Sphere {
-        center: Point3::new(0.0, -100.5, -1.0),
-        radius: 100.0,
-        mat_ptr: Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0))),
+        center: Point3::new(-radius1, 0.0, -1.0),
+        radius: radius1,
+        mat_ptr: Rc::new(Lambertian::new(Color::new(0.0, 0.0, 1.0))),
     }));
-    // center
+
     world.add(Box::new(Sphere {
-        center: Point3::new(0.0, 0.0, -1.0),
-        radius: 0.5,
-        mat_ptr: Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5))),
-    }));
-    // left (glass)
-    world.add(Box::new(Sphere {
-        center: Point3::new(-1.0, 0.0, -1.0),
-        radius: 0.5,
-        mat_ptr: Rc::new(Dialectric::new(1.5)),
-    }));
-    world.add(Box::new(Sphere {
-        center: Point3::new(-1.0, 0.0, -1.0),
-        radius: -0.4, // TODO: wat is a negative radius
-        mat_ptr: Rc::new(Dialectric::new(1.5)),
-    }));
-    // right (metal)
-    world.add(Box::new(Sphere {
-        center: Point3::new(1.0, 0.0, -1.0),
-        radius: 0.5,
-        mat_ptr: Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 1.0)),
+        center: Point3::new(radius1, 0.0, -1.0),
+        radius: radius1,
+        mat_ptr: Rc::new(Lambertian::new(Color::new(1.0, 0.0, 0.0))),
     }));
 
     // Image
@@ -59,7 +72,7 @@ fn main() {
     let max_depth = max_depth;
 
     // Camera
-    let camera = Camera::new(aspect_ratio);
+    let camera = Camera::new(90.0, aspect_ratio);
 
     // Render
 

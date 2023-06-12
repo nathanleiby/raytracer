@@ -1,14 +1,14 @@
 use std::{
     cmp::Ordering,
+    f64::consts::PI,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
     rc::Rc,
 };
 
-use rand::{random, Rng};
+use rand::Rng;
 
 // Constants
 const INF: f64 = f64::INFINITY;
-const PI: f64 = 3.14159265358979323846264338327950288f64;
 
 pub const COLOR_BLACK: Color = Color { e: [0.0, 0.0, 0.0] };
 pub const COLOR_WHITE: Color = Color { e: [1.0, 1.0, 1.0] };
@@ -632,8 +632,14 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(aspect_ratio: f64) -> Camera {
-        let viewport_height = 2.0;
+    pub fn new(
+        // vertical field-of-view (degrees)
+        vfov: f64,
+        aspect_ratio: f64,
+    ) -> Camera {
+        let theta = degrees_to_radians(vfov);
+        let h = (theta / 2.0).tan();
+        let viewport_height = 2.0 * h;
         let viewport_width = aspect_ratio * viewport_height;
         let focal_length = 1.0;
 
