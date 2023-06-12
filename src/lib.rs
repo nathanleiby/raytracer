@@ -22,6 +22,10 @@ pub fn random_double() -> f64 {
     rand::thread_rng().gen::<f64>()
 }
 
+pub fn random_bounded(min: f64, max: f64) -> f64 {
+    rand::thread_rng().gen_range(min..max)
+}
+
 pub fn dot(u: Vec3, v: Vec3) -> f64 {
     u[0] * v[0] + u[1] * v[1] + u[2] * v[2]
 }
@@ -88,12 +92,10 @@ impl Vec3 {
     }
 
     pub fn new_random_bounded(min: f64, max: f64) -> Vec3 {
-        let mut rng = rand::thread_rng();
-
         Vec3::new(
-            rng.gen_range(min..max),
-            rng.gen_range(min..max),
-            rng.gen_range(min..max),
+            random_bounded(min, max),
+            random_bounded(min, max),
+            random_bounded(min, max),
         )
     }
 
@@ -116,6 +118,15 @@ impl Vec3 {
 
     pub fn new_random_unit_vector() -> Vec3 {
         Self::new_random_in_unit_sphere().unit_vector()
+    }
+
+    pub fn new_random_in_unit_disk() -> Vec3 {
+        loop {
+            let p = Vec3::new(random_bounded(-1.0, 1.0), random_bounded(-1.0, 1.0), 0.0);
+            if dot(p, p) < 1.0 {
+                return p;
+            }
+        }
     }
 
     pub fn near_zero(self) -> bool {
@@ -595,6 +606,10 @@ pub struct Camera {
     lower_left_corner: Point3,
     horizontal: Vec3,
     vertical: Vec3,
+    u: Vec3,
+    v: Vec3,
+    w: Vec3,
+    lens_radius: f64,
 }
 
 impl Camera {
@@ -604,6 +619,8 @@ impl Camera {
         vup: Vec3, // view up
         vfov: f64, // vertical field-of-view (degrees)
         aspect_ratio: f64,
+        aperture: f64,
+        focus_dist: f64,
     ) -> Camera {
         let theta = degrees_to_radians(vfov);
         let h = (theta / 2.0).tan();
@@ -615,22 +632,30 @@ impl Camera {
         let v = w.cross(u);
 
         let origin = lookfrom;
-        let horizontal = viewport_width * u;
-        let vertical = viewport_height * v;
-        let lower_left_corner = origin - (horizontal / 2.0) - (vertical / 2.0) - w;
+        let horizontal = focus_dist * viewport_width * u;
+        let vertical = focus_dist * viewport_height * v;
+        let lower_left_corner = origin - (horizontal / 2.0) - (vertical / 2.0) - focus_dist * w;
+
+        let lens_radius = aperture / 2.0;
 
         Camera {
             origin,
             lower_left_corner,
             horizontal,
             vertical,
+            u,
+            v,
+            w,
+            lens_radius,
         }
     }
 
     pub fn get_ray(self, s: f64, t: f64) -> Ray {
+        let rd = self.lens_radius * Vec3::new_random_in_unit_disk();
+        let offset = self.u * rd.x() + self.v * rd.y();
         Ray::new(
-            self.origin,
-            self.lower_left_corner + self.horizontal * s + self.vertical * t - self.origin,
+            self.origin + offset,
+            self.lower_left_corner + self.horizontal * s + self.vertical * t - self.origin - offset,
         )
     }
 }
