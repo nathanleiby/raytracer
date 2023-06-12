@@ -21,39 +21,6 @@ fn degrees_to_radians(degrees: f64) -> f64 {
 pub fn random_double() -> f64 {
     rand::thread_rng().gen::<f64>()
 }
-// #[derive(Debug, Copy, Clone, PartialEq)]
-// pub struct Vec3 {
-//     pub x: f64,
-//     pub y: f64,
-//     pub z: f64,
-// }
-
-// impl Vec3 {
-//     pub fn new(x: f64, y: f64, z: f64) -> Vec3 {
-//         Vec3 { x, y, z }
-//     }
-
-//     pub fn length(self) -> f64 {
-//         f64::sqrt(self.length_squared())
-//     }
-
-//     pub fn length_squared(self) -> f64 {
-//         dot(self, self)
-//     }
-
-//     pub fn unit_vector(self) -> Vec3 {
-//         self / self.length()
-//     }
-
-// }
-
-// pub fn cross(u: Vec3, v: Vec3) -> Vec3 {
-//     Vec3 {
-//         x: u.y * v.z - u.z * v.y,
-//         y: u.z * v.x - u.x * v.z,
-//         z: u.x * v.y - u.y * v.x,
-//     }
-// }
 
 pub fn dot(u: Vec3, v: Vec3) -> f64 {
     u[0] * v[0] + u[1] * v[1] + u[2] * v[2]
@@ -63,7 +30,6 @@ pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     v - (n * 2.0 * dot(v, n))
 }
 
-// #[derive(Debug, Copy, Clone, PartialEq)]
 #[derive(Debug, Clone, Copy)]
 pub struct Vec3 {
     e: [f64; 3],
@@ -633,21 +599,25 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(
-        // vertical field-of-view (degrees)
-        vfov: f64,
+        lookfrom: Point3,
+        lookat: Point3,
+        vup: Vec3, // view up
+        vfov: f64, // vertical field-of-view (degrees)
         aspect_ratio: f64,
     ) -> Camera {
         let theta = degrees_to_radians(vfov);
         let h = (theta / 2.0).tan();
         let viewport_height = 2.0 * h;
         let viewport_width = aspect_ratio * viewport_height;
-        let focal_length = 1.0;
 
-        let origin = Point3::new(0.0, 0.0, 0.0);
-        let horizontal = Vec3::new(viewport_width, 0.0, 0.0);
-        let vertical = Vec3::new(0.0, viewport_height, 0.0);
-        let lower_left_corner =
-            origin - (horizontal / 2.0) - (vertical / 2.0) - Vec3::new(0.0, 0.0, focal_length);
+        let w = (lookfrom - lookat).unit_vector();
+        let u = vup.cross(w).unit_vector();
+        let v = w.cross(u);
+
+        let origin = lookfrom;
+        let horizontal = viewport_width * u;
+        let vertical = viewport_height * v;
+        let lower_left_corner = origin - (horizontal / 2.0) - (vertical / 2.0) - w;
 
         Camera {
             origin,
@@ -657,10 +627,10 @@ impl Camera {
         }
     }
 
-    pub fn get_ray(self, u: f64, v: f64) -> Ray {
+    pub fn get_ray(self, s: f64, t: f64) -> Ray {
         Ray::new(
             self.origin,
-            self.lower_left_corner + self.horizontal * u + self.vertical * v - self.origin,
+            self.lower_left_corner + self.horizontal * s + self.vertical * t - self.origin,
         )
     }
 }
