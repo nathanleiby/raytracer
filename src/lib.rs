@@ -511,41 +511,23 @@ impl Material for Dialectric {
             self.index_of_refraction
         };
 
-        let unit_direction = r_in.dir.normalized();
-        let refracted = refract(unit_direction, rec.normal, refraction_ratio);
-        let scattered = Ray::new(rec.p, refracted);
+        let unit_direction = r_in.dir.unit_vector();
 
+        let cos_theta = f64::min(dot(-unit_direction, rec.normal), 1.0);
+        let sin_theta = f64::sqrt(1.0 - cos_theta * cos_theta);
+
+        let cannot_refract = refraction_ratio * sin_theta > 1.0;
+        let direction = if cannot_refract {
+            reflect(unit_direction, rec.normal)
+        } else {
+            refract(unit_direction, rec.normal, refraction_ratio)
+        };
+
+        let scattered = Ray::new(rec.p, direction);
         Some(ScatterResult {
-            attenuation: Color::new(1.0, 1.0, 1.0),
             scattered,
+            attenuation: COLOR_WHITE,
         })
-        // eprintln!("scatter Dialectric");
-        // let refraction_ratio = if rec.front_face {
-        //     1.0 / self.index_of_refraction
-        // } else {
-        //     self.index_of_refraction
-        // };
-
-        // let unit_direction = r.dir.unit_vector();
-
-        // let cos_theta = f64::min(dot(-unit_direction, rec.normal), 1.0);
-        // let sin_theta = f64::sqrt(1.0 - cos_theta * cos_theta);
-
-        // // let cannot_refract = refraction_ratio * sin_theta > 1.0;
-        // let cannot_refract = false; // always refract, 1st..
-        // let direction = if cannot_refract {
-        //     // eprintln!("-> reflect");
-        //     reflect(unit_direction, rec.normal)
-        // } else {
-        //     // eprintln!("-> refract");
-        //     refract(unit_direction, rec.normal, refraction_ratio)
-        // };
-
-        // let scattered = Ray::new(rec.p, direction);
-        // Some(ScatterResult {
-        //     scattered,
-        //     attenuation: COLOR_WHITE,
-        // })
     }
 }
 
