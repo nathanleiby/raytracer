@@ -2,14 +2,15 @@ use std::{env, f64::consts::PI, rc::Rc};
 
 use rand::Rng;
 use rt::{
-    Camera, Color, Dialectric, HitList, Lambertian, Metal, Point3, Sphere, Vec3, COLOR_BLACK,
+    random_scene, Camera, Color, Dialectric, HitList, Lambertian, Metal, Point3, Sphere, Vec3,
+    COLOR_BLACK,
 };
 
 const DEBUG_ONE_RAY: bool = false;
 
 fn main() {
     let mut max_depth: i32 = 50;
-    let mut samples_per_pixel = 100.0;
+    let mut samples_per_pixel = 500.0;
     if env::var("FAST_MODE").is_ok() {
         max_depth = 3;
         samples_per_pixel = 40.0;
@@ -22,63 +23,65 @@ fn main() {
     let mut rng = rand::thread_rng();
 
     // World
-    let mut world = HitList::new();
-    // ground
-    world.add(Box::new(Sphere {
-        center: Point3::new(0.0, -100.5, -1.0),
-        radius: 100.0,
-        mat_ptr: Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0))),
-    }));
-    // center
-    world.add(Box::new(Sphere {
-        center: Point3::new(0.0, 0.0, -1.0),
-        radius: 0.5,
-        mat_ptr: Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5))),
-    }));
-    // left (glass)
-    world.add(Box::new(Sphere {
-        center: Point3::new(-1.0, 0.0, -1.0),
-        radius: 0.5,
-        mat_ptr: Rc::new(Dialectric::new(1.5)),
-    }));
-    world.add(Box::new(Sphere {
-        center: Point3::new(-1.0, 0.0, -1.0),
-        radius: -0.4, // TODO: wat is a negative radius
-        mat_ptr: Rc::new(Dialectric::new(1.5)),
-    }));
-    // right (metal)
-    world.add(Box::new(Sphere {
-        center: Point3::new(1.0, 0.0, -1.0),
-        radius: 0.5,
-        mat_ptr: Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 0.05)),
-    }));
-
-    // let radius1 = (PI / 4.0).cos();
+    // let mut world = HitList::new();
+    // // ground
     // world.add(Box::new(Sphere {
-    //     center: Point3::new(-radius1, 0.0, -1.0),
-    //     radius: radius1,
-    //     mat_ptr: Rc::new(Lambertian::new(Color::new(0.0, 0.0, 1.0))),
+    //     center: Point3::new(0.0, -100.5, -1.0),
+    //     radius: 100.0,
+    //     mat_ptr: Rc::new(Lambertian::new(Color::new(0.8, 0.8, 0.0))),
+    // }));
+    // // center
+    // world.add(Box::new(Sphere {
+    //     center: Point3::new(0.0, 0.0, -1.0),
+    //     radius: 0.5,
+    //     mat_ptr: Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5))),
+    // }));
+    // // left (glass)
+    // world.add(Box::new(Sphere {
+    //     center: Point3::new(-1.0, 0.0, -1.0),
+    //     radius: 0.5,
+    //     mat_ptr: Rc::new(Dialectric::new(1.5)),
+    // }));
+    // world.add(Box::new(Sphere {
+    //     center: Point3::new(-1.0, 0.0, -1.0),
+    //     radius: -0.4, // TODO: wat is a negative radius
+    //     mat_ptr: Rc::new(Dialectric::new(1.5)),
+    // }));
+    // // right (metal)
+    // world.add(Box::new(Sphere {
+    //     center: Point3::new(1.0, 0.0, -1.0),
+    //     radius: 0.5,
+    //     mat_ptr: Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 0.05)),
     // }));
 
-    // world.add(Box::new(Sphere {
-    //     center: Point3::new(radius1, 0.0, -1.0),
-    //     radius: radius1,
-    //     mat_ptr: Rc::new(Lambertian::new(Color::new(1.0, 0.0, 0.0))),
-    // }));
+    // // let radius1 = (PI / 4.0).cos();
+    // // world.add(Box::new(Sphere {
+    // //     center: Point3::new(-radius1, 0.0, -1.0),
+    // //     radius: radius1,
+    // //     mat_ptr: Rc::new(Lambertian::new(Color::new(0.0, 0.0, 1.0))),
+    // // }));
+
+    // // world.add(Box::new(Sphere {
+    // //     center: Point3::new(radius1, 0.0, -1.0),
+    // //     radius: radius1,
+    // //     mat_ptr: Rc::new(Lambertian::new(Color::new(1.0, 0.0, 0.0))),
+    // // }));
+    let mut world = random_scene();
 
     // Image
-    let aspect_ratio = 16.0 / 9.0;
-    let image_height: i64 = 256;
-    let image_width: i64 = (image_height as f64 * aspect_ratio) as i64;
+    let aspect_ratio = 3.0 / 2.0;
+    let image_width: i64 = 1200;
+    let image_height: i64 = (image_width as f64 / aspect_ratio) as i64;
 
     let max_depth = max_depth;
 
     // Camera
 
-    let lookfrom = Point3::new(3.0, 3.0, 2.0);
-    let lookat = Point3::new(0.0, 0.0, -1.0);
-    let dist_to_focus = (lookfrom - lookat).length();
-    let aperture = 2.0;
+    let lookfrom = Point3::new(13.0, 2.0, 3.0);
+    let lookat = Point3::new(0.0, 0.0, 0.0);
+    let dist_to_focus = 10.0;
+    let aperture = 1.0;
+
     let camera = Camera::new(
         lookfrom,
         lookat,
