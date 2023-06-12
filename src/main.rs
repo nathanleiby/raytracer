@@ -50,7 +50,7 @@ fn main() {
     world.add(Box::new(Sphere {
         center: Point3::new(1.0, 0.0, -1.0),
         radius: 0.5,
-        mat_ptr: Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 1.0)),
+        mat_ptr: Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 0.05)),
     }));
 
     // let radius1 = (PI / 4.0).cos();
@@ -78,7 +78,7 @@ fn main() {
         Point3::new(-2.0, 2.0, 1.0),
         Point3::new(0.0, 0.0, -1.0),
         Vec3::new(0.0, 1.0, 0.0),
-        90.0,
+        20.0,
         aspect_ratio,
     );
 
