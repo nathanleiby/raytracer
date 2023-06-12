@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    ops::{Add, Div, Mul, Neg, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
     rc::Rc,
 };
 
@@ -10,53 +10,123 @@ use rand::{random, Rng};
 const INF: f64 = f64::INFINITY;
 const PI: f64 = 3.14159265358979323846264338327950288f64;
 
-pub const COLOR_BLACK: Color = Color {
-    x: 0.0,
-    y: 0.0,
-    z: 0.0,
-};
-
-const COLOR_WHITE: Color = Color {
-    x: 1.0,
-    y: 1.0,
-    z: 1.0,
-};
+pub const COLOR_BLACK: Color = Color { e: [0.0, 0.0, 0.0] };
+pub const COLOR_WHITE: Color = Color { e: [1.0, 1.0, 1.0] };
 
 // Utility
 fn degrees_to_radians(degrees: f64) -> f64 {
     degrees / 180.0 * PI
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Vec3 {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+// #[derive(Debug, Copy, Clone, PartialEq)]
+// pub struct Vec3 {
+//     pub x: f64,
+//     pub y: f64,
+//     pub z: f64,
+// }
+
+// impl Vec3 {
+//     pub fn new(x: f64, y: f64, z: f64) -> Vec3 {
+//         Vec3 { x, y, z }
+//     }
+
+//     pub fn length(self) -> f64 {
+//         f64::sqrt(self.length_squared())
+//     }
+
+//     pub fn length_squared(self) -> f64 {
+//         dot(self, self)
+//     }
+
+//     pub fn unit_vector(self) -> Vec3 {
+//         self / self.length()
+//     }
+
+// }
+
+// pub fn cross(u: Vec3, v: Vec3) -> Vec3 {
+//     Vec3 {
+//         x: u.y * v.z - u.z * v.y,
+//         y: u.z * v.x - u.x * v.z,
+//         z: u.x * v.y - u.y * v.x,
+//     }
+// }
+
+pub fn dot(u: Vec3, v: Vec3) -> f64 {
+    u[0] * v[0] + u[1] * v[1] + u[2] * v[2]
 }
 
+pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
+    v - (n * 2.0 * dot(v, n))
+}
+
+// #[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy)]
+pub struct Vec3 {
+    e: [f64; 3],
+}
+
+pub type Point3 = Vec3;
+pub type Color = Vec3;
+
 impl Vec3 {
-    pub fn new(x: f64, y: f64, z: f64) -> Vec3 {
-        Vec3 { x, y, z }
+    pub fn new(e0: f64, e1: f64, e2: f64) -> Vec3 {
+        Vec3 { e: [e0, e1, e2] }
+    }
+
+    pub fn x(self) -> f64 {
+        self[0]
+    }
+
+    pub fn y(self) -> f64 {
+        self[1]
+    }
+
+    pub fn z(self) -> f64 {
+        self[2]
+    }
+
+    pub fn dot(self, other: Vec3) -> f64 {
+        self[0] * other[0] + self[1] * other[1] + self[2] * other[2]
+    }
+
+    pub fn length(self) -> f64 {
+        self.dot(self).sqrt()
+    }
+
+    pub fn cross(self, other: Vec3) -> Vec3 {
+        Vec3 {
+            e: [
+                self[1] * other[2] - self[2] * other[1],
+                self[2] * other[0] - self[0] * other[2],
+                self[0] * other[1] - self[1] * other[0],
+            ],
+        }
+    }
+
+    pub fn normalized(self) -> Vec3 {
+        self / self.length()
+    }
+
+    // alias of ^
+    pub fn unit_vector(self) -> Vec3 {
+        self.normalized()
     }
 
     pub fn new_random() -> Vec3 {
         let mut rng = rand::thread_rng();
 
-        Vec3 {
-            x: rng.gen::<f64>(),
-            y: rng.gen::<f64>(),
-            z: rng.gen::<f64>(),
-        }
+        Vec3::new(rng.gen::<f64>(), rng.gen::<f64>(), rng.gen::<f64>())
     }
 
     pub fn new_random_bounded(min: f64, max: f64) -> Vec3 {
         let mut rng = rand::thread_rng();
 
-        Vec3 {
-            x: rng.gen_range(min..max),
-            y: rng.gen_range(min..max),
-            z: rng.gen_range(min..max),
-        }
+        Vec3::new(
+            rng.gen_range(min..max),
+            rng.gen_range(min..max),
+            rng.gen_range(min..max),
+        )
     }
 
     pub fn new_random_in_unit_sphere() -> Vec3 {
@@ -80,101 +150,96 @@ impl Vec3 {
         Self::new_random_in_unit_sphere().unit_vector()
     }
 
-    pub fn length(self) -> f64 {
-        f64::sqrt(self.length_squared())
-    }
-
-    pub fn length_squared(self) -> f64 {
-        dot(self, self)
-    }
-
-    pub fn unit_vector(self) -> Vec3 {
-        self / self.length()
-    }
-
     pub fn near_zero(self) -> bool {
         let s = 1e-8;
-        f64::abs(self.x) < s && f64::abs(self.y) < s && f64::abs(self.z) < s
+        self[0].abs() < s && self[1].abs() < s && self[2].abs() < s
     }
 }
 
-pub fn cross(u: Vec3, v: Vec3) -> Vec3 {
-    Vec3 {
-        x: u.y * v.z - u.z * v.y,
-        y: u.z * v.x - u.x * v.z,
-        z: u.x * v.y - u.y * v.x,
+impl Index<usize> for Vec3 {
+    type Output = f64;
+
+    fn index(&self, index: usize) -> &f64 {
+        &self.e[index]
     }
 }
 
-pub fn dot(u: Vec3, v: Vec3) -> f64 {
-    u.x * v.x + u.y * v.y + u.z * v.z
+impl IndexMut<usize> for Vec3 {
+    fn index_mut(&mut self, index: usize) -> &mut f64 {
+        &mut self.e[index]
+    }
 }
 
-pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
-    v - (n * 2.0 * dot(v, n))
-}
-
-pub fn refract(uv: Vec3, n: Vec3, etai_over_etat: f64) -> Vec3 {
-    let cos_theta = f64::min(dot(-uv, n), 1.0);
-    let r_out_perp = etai_over_etat * (uv + cos_theta * n);
-    let r_out_parallel = -f64::sqrt(f64::abs(1.0 - r_out_perp.length_squared())) * n;
-    return r_out_perp + r_out_parallel;
-}
-
-// Operator Overloading via Traits
 impl Add for Vec3 {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        Self {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
+    type Output = Vec3;
+
+    fn add(self, other: Vec3) -> Vec3 {
+        Vec3 {
+            e: [self[0] + other[0], self[1] + other[1], self[2] + other[2]],
         }
+    }
+}
+
+impl AddAssign for Vec3 {
+    fn add_assign(&mut self, other: Vec3) -> () {
+        *self = Vec3 {
+            e: [self[0] + other[0], self[1] + other[1], self[2] + other[2]],
+        };
     }
 }
 
 impl Sub for Vec3 {
-    type Output = Self;
-    fn sub(self, other: Self) -> Self {
-        Self {
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z,
+    type Output = Vec3;
+
+    fn sub(self, other: Vec3) -> Vec3 {
+        Vec3 {
+            e: [self[0] - other[0], self[1] - other[1], self[2] - other[2]],
         }
     }
 }
 
-// Multiplication with scalar
+impl SubAssign for Vec3 {
+    fn sub_assign(&mut self, other: Vec3) -> () {
+        *self = Vec3 {
+            e: [self[0] - other[0], self[1] - other[1], self[2] - other[2]],
+        };
+    }
+}
+
 impl Mul<f64> for Vec3 {
     type Output = Vec3;
 
-    fn mul(self, f: f64) -> Vec3 {
+    fn mul(self, other: f64) -> Vec3 {
         Vec3 {
-            x: self.x * f,
-            y: self.y * f,
-            z: self.z * f,
+            e: [self[0] * other, self[1] * other, self[2] * other],
         }
     }
 }
 
-// Multiplication with scalar (other direction)
-impl Mul<Vec3> for f64 {
-    type Output = Vec3;
-
-    fn mul(self, v: Vec3) -> Vec3 {
-        v * self // re-use above def
+impl MulAssign<f64> for Vec3 {
+    fn mul_assign(&mut self, other: f64) -> () {
+        *self = Vec3 {
+            e: [self[0] * other, self[1] * other, self[2] * other],
+        };
     }
 }
 
-// Multiplication with vector
+impl Mul<Vec3> for f64 {
+    type Output = Vec3;
+
+    fn mul(self, other: Vec3) -> Vec3 {
+        Vec3 {
+            e: [self * other[0], self * other[1], self * other[2]],
+        }
+    }
+}
+
 impl Mul<Vec3> for Vec3 {
     type Output = Vec3;
 
     fn mul(self, other: Vec3) -> Vec3 {
         Vec3 {
-            x: self.x * other.x,
-            y: self.y * other.y,
-            z: self.z * other.z,
+            e: [self[0] * other[0], self[1] * other[1], self[2] * other[2]],
         }
     }
 }
@@ -182,25 +247,111 @@ impl Mul<Vec3> for Vec3 {
 impl Div<f64> for Vec3 {
     type Output = Vec3;
 
-    fn div(self, f: f64) -> Vec3 {
-        self * (1.0 / f)
+    fn div(self, other: f64) -> Vec3 {
+        Vec3 {
+            e: [self[0] / other, self[1] / other, self[2] / other],
+        }
     }
 }
+
+impl DivAssign<f64> for Vec3 {
+    fn div_assign(&mut self, other: f64) -> () {
+        *self = Vec3 {
+            e: [self[0] / other, self[1] / other, self[2] / other],
+        };
+    }
+}
+
+// pub fn refract(uv: Vec3, n: Vec3, etai_over_etat: f64) -> Vec3 {
+//     let cos_theta = dot(-uv, n).min(1.0);
+//     let r_out_perp = etai_over_etat * (uv + cos_theta * n);
+//     let r_out_parallel = -(1.0 - r_out_perp.length_squared()).abs().sqrt() * n;
+//     r_out_perp + r_out_parallel
+// }
+
+pub fn refract(uv: Vec3, n: Vec3, etai_over_etat: f64) -> Vec3 {
+    let cos_theta = ((-1.0) * uv).dot(n).min(1.0);
+    let r_out_perp = etai_over_etat * (uv + cos_theta * n);
+    let r_out_parallel = -(1.0 - r_out_perp.length().powi(2)).abs().sqrt() * n;
+    r_out_perp + r_out_parallel
+}
+
+// // // Operator Overloading via Traits
+// // impl Add for Vec3 {
+// //     type Output = Self;
+// //     fn add(self, other: Self) -> Self {
+// //         Self {
+// //             x: self.x + other.x,
+// //             y: self.y + other.y,
+// //             z: self.z + other.z,
+// //         }
+// //     }
+// // }
+
+// // impl Sub for Vec3 {
+// //     type Output = Self;
+// //     fn sub(self, other: Self) -> Self {
+// //         Self {
+// //             x: self.x - other.x,
+// //             y: self.y - other.y,
+// //             z: self.z - other.z,
+// //         }
+// //     }
+// // }
+
+// // // Multiplication with scalar
+// // impl Mul<f64> for Vec3 {
+// //     type Output = Vec3;
+
+// //     fn mul(self, f: f64) -> Vec3 {
+// //         Vec3 {
+// //             x: self.x * f,
+// //             y: self.y * f,
+// //             z: self.z * f,
+// //         }
+// //     }
+// // }
+
+// // // Multiplication with scalar (other direction)
+// // impl Mul<Vec3> for f64 {
+// //     type Output = Vec3;
+
+// //     fn mul(self, v: Vec3) -> Vec3 {
+// //         v * self // re-use above def
+// //     }
+// // }
+
+// // // Multiplication with vector
+// // impl Mul<Vec3> for Vec3 {
+// //     type Output = Vec3;
+
+// //     fn mul(self, other: Vec3) -> Vec3 {
+// //         Vec3 {
+// //             x: self.x * other.x,
+// //             y: self.y * other.y,
+// //             z: self.z * other.z,
+// //         }
+// //     }
+// // }
+
+// // impl Div<f64> for Vec3 {
+// //     type Output = Vec3;
+
+// //     fn div(self, f: f64) -> Vec3 {
+// //         self * (1.0 / f)
+// //     }
+// // }
 
 impl Neg for Vec3 {
     type Output = Self;
 
     fn neg(self) -> Vec3 {
-        Vec3 {
-            x: -self.x,
-            y: -self.y,
-            z: -self.z,
-        }
+        self * -1.0
     }
 }
 
-pub type Point3 = Vec3;
-pub type Color = Vec3;
+// pub type Point3 = Vec3;
+// pub type Color = Vec3;
 
 #[derive(Debug)]
 pub struct Ray {
@@ -220,20 +371,27 @@ impl Ray {
     pub fn color(self, world: &mut impl Hittable, depth: i32) -> Color {
         // If we've exceeded the ray bounce limit, no more light is gathered.
         if depth <= 0 {
+            // eprintln!("depth <= 0");
             return COLOR_BLACK;
         }
 
-        let unit_direction = self.dir.unit_vector();
         match world.hit(&self, 0.001, INF) {
             Some(rec) => {
+                // eprintln!("hit? yes");
                 let out = rec.mat_ptr.scatter(&self, &rec);
                 match out {
-                    Some(out) => out.attenuation * out.scattered.color(world, depth - 1),
+                    Some(out) => {
+                        // eprintln!("attenuation: {:?}", out.attenuation);
+                        // eprintln!("scattered:{:?}", out.scattered);
+                        out.attenuation * out.scattered.color(world, depth - 1)
+                    }
                     None => COLOR_BLACK,
                 }
             }
             None => {
-                let t = 0.5 * (unit_direction.y + 1.0);
+                // eprintln!("hit? no");
+                let unit_direction = self.dir.unit_vector();
+                let t = 0.5 * (unit_direction.y() + 1.0);
                 COLOR_WHITE * (1.0 - t) + Color::new(0.5, 0.7, 1.0) * t
             }
         }
@@ -250,11 +408,10 @@ pub struct HitRecord {
 
 impl HitRecord {
     fn with_face_normal(self: Self, r: &Ray, outward_normal: Vec3) -> HitRecord {
-        let front_face = dot(r.dir, outward_normal) < 0.0;
-        let normal = if self.front_face {
-            outward_normal
+        let (normal, front_face) = if dot(r.dir, outward_normal) > 0.0 {
+            (-outward_normal, false)
         } else {
-            outward_normal
+            (outward_normal, true)
         };
 
         HitRecord {
@@ -288,6 +445,7 @@ impl Lambertian {
 
 impl Material for Lambertian {
     fn scatter(&self, _r: &Ray, rec: &HitRecord) -> Option<ScatterResult> {
+        // eprintln!("scatter Lambertian");
         let random_scatter_direction = rec.normal + Vec3::new_random_unit_vector();
         let scatter_direction = if random_scatter_direction.near_zero() {
             rec.normal
@@ -315,6 +473,7 @@ impl Metal {
 
 impl Material for Metal {
     fn scatter(&self, r: &Ray, rec: &HitRecord) -> Option<ScatterResult> {
+        // eprintln!("scatter Metal");
         let reflected = reflect(r.dir.unit_vector(), rec.normal);
 
         let scattered = Ray::new(
@@ -345,30 +504,48 @@ impl Dialectric {
 }
 
 impl Material for Dialectric {
-    fn scatter(&self, r: &Ray, rec: &HitRecord) -> Option<ScatterResult> {
+    fn scatter(&self, r_in: &Ray, rec: &HitRecord) -> Option<ScatterResult> {
         let refraction_ratio = if rec.front_face {
             1.0 / self.index_of_refraction
         } else {
             self.index_of_refraction
         };
 
-        let unit_direction = r.dir.unit_vector();
+        let unit_direction = r_in.dir.normalized();
+        let refracted = refract(unit_direction, rec.normal, refraction_ratio);
+        let scattered = Ray::new(rec.p, refracted);
 
-        let cos_theta = f64::min(dot(-unit_direction, rec.normal), 1.0);
-        let sin_theta = f64::sqrt(1.0 - cos_theta * cos_theta);
-
-        let cannot_refract = refraction_ratio * sin_theta > 1.0;
-        let direction = if cannot_refract {
-            reflect(unit_direction, rec.normal)
-        } else {
-            refract(unit_direction, rec.normal, refraction_ratio)
-        };
-
-        let scattered = Ray::new(rec.p, direction);
         Some(ScatterResult {
+            attenuation: Color::new(1.0, 1.0, 1.0),
             scattered,
-            attenuation: COLOR_WHITE,
         })
+        // eprintln!("scatter Dialectric");
+        // let refraction_ratio = if rec.front_face {
+        //     1.0 / self.index_of_refraction
+        // } else {
+        //     self.index_of_refraction
+        // };
+
+        // let unit_direction = r.dir.unit_vector();
+
+        // let cos_theta = f64::min(dot(-unit_direction, rec.normal), 1.0);
+        // let sin_theta = f64::sqrt(1.0 - cos_theta * cos_theta);
+
+        // // let cannot_refract = refraction_ratio * sin_theta > 1.0;
+        // let cannot_refract = false; // always refract, 1st..
+        // let direction = if cannot_refract {
+        //     // eprintln!("-> reflect");
+        //     reflect(unit_direction, rec.normal)
+        // } else {
+        //     // eprintln!("-> refract");
+        //     refract(unit_direction, rec.normal, refraction_ratio)
+        // };
+
+        // let scattered = Ray::new(rec.p, direction);
+        // Some(ScatterResult {
+        //     scattered,
+        //     attenuation: COLOR_WHITE,
+        // })
     }
 }
 
@@ -496,4 +673,27 @@ pub fn clamp(x: f64, min: f64, max: f64) -> f64 {
         return min;
     }
     x
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_reflect() {
+        let v = Vec3::new(1.0, -1.0, 0.0);
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+        assert_eq!(reflect(v, normal), Vec3::new(1.0, 1.0, 0.0));
+    }
+
+    #[test]
+    fn test_refract() {
+        let v = Vec3::new(1.0, -1.0, 0.0);
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+        assert_eq!(
+            refract(v, normal, 1.5),
+            Vec3::new(1.5, -1.118033988749895, 0.0)
+        );
+    }
 }

@@ -3,10 +3,12 @@ use std::{env, rc::Rc};
 use rand::Rng;
 use rt::{Camera, Color, Dialectric, HitList, Lambertian, Metal, Point3, Sphere, COLOR_BLACK};
 
+const DEBUG_ONE_RAY: bool = false;
+
 fn main() {
     let mut max_depth: i32 = 50;
     if env::var("FAST_MODE").is_ok() {
-        max_depth = 5;
+        max_depth = 3;
     }
 
     let mut rng = rand::thread_rng();
@@ -44,7 +46,7 @@ fn main() {
     let image_width: i64 = (image_height as f64 * aspect_ratio) as i64;
 
     // TODO: speed up debugging...
-    let samples_per_pixel = 100.0;
+    let samples_per_pixel = 100.0; // TOOD
     let max_depth = max_depth;
 
     // Camera
@@ -65,23 +67,29 @@ fn main() {
     for j in (0..image_height).rev() {
         eprintln!("Lines remaining: {j}...");
         for i in 0..image_width {
-            let mut pixel_color = COLOR_BLACK;
-            for _ in 0..100 {
-                let u = (i as f64 + rng.gen::<f64>()) / (image_width as f64 - 1.0); // how horizontal? (0 to 1)
-                let v = (j as f64 + rng.gen::<f64>()) / (image_height as f64 - 1.0); // how vertical? (0 to 1)
-                let ray = camera.get_ray(u, v);
-                pixel_color = pixel_color + ray.color(&mut world, max_depth)
+            // if i == 256 && j == 128 {
+            if !DEBUG_ONE_RAY || (i == 1 && j == 128) {
+                // eprintln!("running.. i={i}, j={j}");
+                let mut pixel_color = COLOR_BLACK;
+                for sample_idx in 0..samples_per_pixel as i64 {
+                    // eprintln!("\n**sample** .. sample_idx={sample_idx}");
+                    let u = (i as f64 + rng.gen::<f64>()) / (image_width as f64 - 1.0); // how horizontal? (0 to 1)
+                    let v = (j as f64 + rng.gen::<f64>()) / (image_height as f64 - 1.0); // how vertical? (0 to 1)
+                    let ray = camera.get_ray(u, v);
+                    pixel_color = pixel_color + ray.color(&mut world, max_depth);
+                    // eprintln!("{:?}", pixel_color);
+                }
+                write_color(pixel_color, samples_per_pixel);
             }
-            write_color(pixel_color, samples_per_pixel);
         }
     }
     eprintln!("Done.");
 }
 
 fn write_color(color: Color, samples_per_pixel: f64) {
-    let mut r = color.x;
-    let mut g = color.y;
-    let mut b = color.z;
+    let mut r = color.x();
+    let mut g = color.y();
+    let mut b = color.z();
 
     // Divide the color by the number of samples and gamma-correct for gamma=2.0.
     let scale = 1.0 / samples_per_pixel;
