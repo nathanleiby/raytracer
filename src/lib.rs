@@ -2,7 +2,7 @@ use std::{
     cmp::Ordering,
     f64::consts::PI,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
-    rc::Rc,
+    sync::Arc,
 };
 
 use rand::Rng;
@@ -347,7 +347,7 @@ impl Ray {
         self.orig + self.dir * t
     }
 
-    pub fn color(self, world: &mut impl Hittable, depth: i32) -> Color {
+    pub fn color(self, world: &impl Hittable, depth: i32) -> Color {
         // If we've exceeded the ray bounce limit, no more light is gathered.
         if depth <= 0 {
             // eprintln!("depth <= 0");
@@ -382,7 +382,7 @@ pub struct HitRecord {
     normal: Vec3,
     t: f64,
     front_face: bool,
-    mat_ptr: Rc<dyn Material>,
+    mat_ptr: Arc<dyn Material>,
 }
 
 impl HitRecord {
@@ -398,7 +398,7 @@ impl HitRecord {
             normal,
             t: self.t,
             front_face,
-            mat_ptr: Rc::clone(&self.mat_ptr),
+            mat_ptr: Arc::clone(&self.mat_ptr),
         }
     }
 }
@@ -408,7 +408,7 @@ pub struct ScatterResult {
     pub attenuation: Color,
 }
 
-pub trait Material {
+pub trait Material: Send + Sync {
     fn scatter(&self, r: &Ray, rec: &HitRecord) -> Option<ScatterResult>;
 }
 
@@ -519,18 +519,18 @@ fn reflectance(cos_theta: f64, refraction_ratio: f64) -> f64 {
     return r0 + (1.0 - r0) * (1.0 - cos_theta).powi(5);
 }
 
-pub trait Hittable {
+pub trait Hittable: Send + Sync {
     fn hit(&self, r: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord>;
 }
 
 pub struct Sphere {
     pub center: Point3,
     pub radius: f64,
-    pub mat_ptr: Rc<dyn Material>,
+    pub mat_ptr: Arc<dyn Material>,
 }
 
 impl Sphere {
-    pub fn new(center: Point3, radius: f64, mat_ptr: Rc<dyn Material>) -> Self {
+    pub fn new(center: Point3, radius: f64, mat_ptr: Arc<dyn Material>) -> Self {
         Sphere {
             center,
             radius,
@@ -569,7 +569,7 @@ impl Hittable for Sphere {
             p,
             normal: (p - self.center) / self.radius,
             front_face: false,
-            mat_ptr: Rc::clone(&self.mat_ptr),
+            mat_ptr: Arc::clone(&self.mat_ptr),
         };
         let outward_normal = (p - self.center) / self.radius;
 
@@ -682,11 +682,11 @@ pub fn clamp(x: f64, min: f64, max: f64) -> f64 {
 pub fn random_scene() -> HitList {
     let mut world = HitList::new();
 
-    let ground_material: Rc<dyn Material> = Rc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
+    let ground_material: Arc<dyn Material> = Arc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
     world.add(Box::new(Sphere {
         center: Point3::new(0.0, -1000.0, 0.0),
         radius: 1000.0,
-        mat_ptr: Rc::clone(&ground_material),
+        mat_ptr: Arc::clone(&ground_material),
     }));
 
     for a in -11..11 {
@@ -699,37 +699,37 @@ pub fn random_scene() -> HitList {
             );
 
             if (center - Point3::new(4.0, 0.2, 0.0)).length() > 0.9 {
-                let sphere_material: Rc<dyn Material>;
+                let sphere_material: Arc<dyn Material>;
 
                 if (choose_mat < 0.8) {
                     // diffuse
                     let albedo = Color::new_random() * Color::new_random();
-                    sphere_material = Rc::new(Lambertian::new(albedo));
+                    sphere_material = Arc::new(Lambertian::new(albedo));
                     world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
                 } else if (choose_mat < 0.95) {
                     // metal
                     let albedo = Color::new_random_bounded(0.5, 1.0);
                     let fuzz = random_bounded(0.0, 0.5);
-                    sphere_material = Rc::new(Metal::new(albedo, fuzz));
+                    sphere_material = Arc::new(Metal::new(albedo, fuzz));
                     world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
                 } else {
                     // glass
-                    sphere_material = Rc::new(Dialectric::new(1.5));
+                    sphere_material = Arc::new(Dialectric::new(1.5));
                     world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
                 }
             }
         }
     }
 
-    let material1 = Rc::new(Dialectric::new(1.5));
+    let material1 = Arc::new(Dialectric::new(1.5));
     let center1 = Point3::new(0.0, 1.0, 0.0);
     world.add(Box::new(Sphere::new(center1, 1.0, material1)));
 
-    let material2 = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
+    let material2 = Arc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
     let center2 = Point3::new(-4.0, 1.0, 0.0);
     world.add(Box::new(Sphere::new(center2, 1.0, material2)));
 
-    let material3 = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
+    let material3 = Arc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
     let center3 = Point3::new(4.0, 1.0, 0.0);
     world.add(Box::new(Sphere::new(center3, 1.0, material3)));
 

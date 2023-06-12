@@ -1,4 +1,5 @@
-use std::{env, f64::consts::PI, rc::Rc};
+use rayon::prelude::*;
+use std::{env, f64::consts::PI, sync::Arc};
 
 use rand::Rng;
 use rt::{
@@ -16,11 +17,9 @@ fn main() {
         samples_per_pixel = 40.0;
     }
     if env::var("DETAIL_MODE").is_ok() {
-        max_depth = 100;
-        samples_per_pixel = 200.0;
+        max_depth = 50;
+        samples_per_pixel = 500.0;
     }
-
-    let mut rng = rand::thread_rng();
 
     // World
     // let mut world = HitList::new();
@@ -34,37 +33,37 @@ fn main() {
     // world.add(Box::new(Sphere {
     //     center: Point3::new(0.0, 0.0, -1.0),
     //     radius: 0.5,
-    //     mat_ptr: Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5))),
+    //     mat_ptr: Arc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5))),
     // }));
     // // left (glass)
     // world.add(Box::new(Sphere {
     //     center: Point3::new(-1.0, 0.0, -1.0),
     //     radius: 0.5,
-    //     mat_ptr: Rc::new(Dialectric::new(1.5)),
+    //     mat_ptr: Arc::new(Dialectric::new(1.5)),
     // }));
     // world.add(Box::new(Sphere {
     //     center: Point3::new(-1.0, 0.0, -1.0),
     //     radius: -0.4, // TODO: wat is a negative radius
-    //     mat_ptr: Rc::new(Dialectric::new(1.5)),
+    //     mat_ptr: Arc::new(Dialectric::new(1.5)),
     // }));
     // // right (metal)
     // world.add(Box::new(Sphere {
     //     center: Point3::new(1.0, 0.0, -1.0),
     //     radius: 0.5,
-    //     mat_ptr: Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 0.05)),
+    //     mat_ptr: Arc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 0.05)),
     // }));
 
     // // let radius1 = (PI / 4.0).cos();
     // // world.add(Box::new(Sphere {
     // //     center: Point3::new(-radius1, 0.0, -1.0),
     // //     radius: radius1,
-    // //     mat_ptr: Rc::new(Lambertian::new(Color::new(0.0, 0.0, 1.0))),
+    // //     mat_ptr: Arc::new(Lambertian::new(Color::new(0.0, 0.0, 1.0))),
     // // }));
 
     // // world.add(Box::new(Sphere {
     // //     center: Point3::new(radius1, 0.0, -1.0),
     // //     radius: radius1,
-    // //     mat_ptr: Rc::new(Lambertian::new(Color::new(1.0, 0.0, 0.0))),
+    // //     mat_ptr: Arc::new(Lambertian::new(Color::new(1.0, 0.0, 0.0))),
     // // }));
     let mut world = random_scene();
 
@@ -80,7 +79,7 @@ fn main() {
     let lookfrom = Point3::new(13.0, 2.0, 3.0);
     let lookat = Point3::new(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
-    let aperture = 1.0;
+    let aperture = 0.1;
 
     let camera = Camera::new(
         lookfrom,
@@ -106,21 +105,23 @@ fn main() {
     // RGB triplets
     for j in (0..image_height).rev() {
         eprintln!("Lines remaining: {j}...");
-        for i in 0..image_width {
-            // if i == 256 && j == 128 {
-            if !DEBUG_ONE_RAY || (i == 1 && j == 128) {
-                // eprintln!("running.. i={i}, j={j}");
+        let out: Vec<Color> = (0..image_width)
+            .into_par_iter()
+            .map(|i| {
                 let mut pixel_color = COLOR_BLACK;
                 for sample_idx in 0..samples_per_pixel as i64 {
-                    // eprintln!("\n**sample** .. sample_idx={sample_idx}");
+                    let mut rng = rand::thread_rng();
                     let u = (i as f64 + rng.gen::<f64>()) / (image_width as f64 - 1.0); // how horizontal? (0 to 1)
                     let v = (j as f64 + rng.gen::<f64>()) / (image_height as f64 - 1.0); // how vertical? (0 to 1)
                     let ray = camera.get_ray(u, v);
-                    pixel_color = pixel_color + ray.color(&mut world, max_depth);
-                    // eprintln!("{:?}", pixel_color);
+                    pixel_color = pixel_color + ray.color(&world, max_depth);
                 }
-                write_color(pixel_color, samples_per_pixel);
-            }
+                pixel_color
+                // }
+            })
+            .collect();
+        for pixel_color in out {
+            write_color(pixel_color, samples_per_pixel);
         }
     }
     eprintln!("Done.");
