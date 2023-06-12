@@ -18,6 +18,9 @@ fn degrees_to_radians(degrees: f64) -> f64 {
     degrees / 180.0 * PI
 }
 
+pub fn random_double() -> f64 {
+    rand::thread_rng().gen::<f64>()
+}
 // #[derive(Debug, Copy, Clone, PartialEq)]
 // pub struct Vec3 {
 //     pub x: f64,
@@ -115,7 +118,6 @@ impl Vec3 {
 
     pub fn new_random() -> Vec3 {
         let mut rng = rand::thread_rng();
-
         Vec3::new(rng.gen::<f64>(), rng.gen::<f64>(), rng.gen::<f64>())
     }
 
@@ -517,11 +519,13 @@ impl Material for Dialectric {
         let sin_theta = f64::sqrt(1.0 - cos_theta * cos_theta);
 
         let cannot_refract = refraction_ratio * sin_theta > 1.0;
-        let direction = if cannot_refract {
-            reflect(unit_direction, rec.normal)
-        } else {
-            refract(unit_direction, rec.normal, refraction_ratio)
-        };
+
+        let direction =
+            if cannot_refract || reflectance(cos_theta, refraction_ratio) > random_double() {
+                reflect(unit_direction, rec.normal)
+            } else {
+                refract(unit_direction, rec.normal, refraction_ratio)
+            };
 
         let scattered = Ray::new(rec.p, direction);
         Some(ScatterResult {
@@ -529,6 +533,13 @@ impl Material for Dialectric {
             attenuation: COLOR_WHITE,
         })
     }
+}
+
+fn reflectance(cos_theta: f64, refraction_ratio: f64) -> f64 {
+    // Use Schlick's approximation for reflectance.
+    let r0 = (1.0 - refraction_ratio) / (1.0 + refraction_ratio);
+    let r0 = r0 * r0;
+    return r0 + (1.0 - r0) * (1.0 - cos_theta).powi(5);
 }
 
 pub trait Hittable {

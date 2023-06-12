@@ -7,8 +7,14 @@ const DEBUG_ONE_RAY: bool = false;
 
 fn main() {
     let mut max_depth: i32 = 50;
+    let mut samples_per_pixel = 100.0;
     if env::var("FAST_MODE").is_ok() {
         max_depth = 3;
+        samples_per_pixel = 40.0;
+    }
+    if env::var("DETAIL_MODE").is_ok() {
+        max_depth = 100;
+        samples_per_pixel = 200.0;
     }
 
     let mut rng = rand::thread_rng();
@@ -27,10 +33,15 @@ fn main() {
         radius: 0.5,
         mat_ptr: Rc::new(Lambertian::new(Color::new(0.1, 0.2, 0.5))),
     }));
-    // left (metal)
+    // left (glass)
     world.add(Box::new(Sphere {
         center: Point3::new(-1.0, 0.0, -1.0),
         radius: 0.5,
+        mat_ptr: Rc::new(Dialectric::new(1.5)),
+    }));
+    world.add(Box::new(Sphere {
+        center: Point3::new(-1.0, 0.0, -1.0),
+        radius: -0.4, // TODO: wat is a negative radius
         mat_ptr: Rc::new(Dialectric::new(1.5)),
     }));
     // right (metal)
@@ -45,8 +56,6 @@ fn main() {
     let image_height: i64 = 256;
     let image_width: i64 = (image_height as f64 * aspect_ratio) as i64;
 
-    // TODO: speed up debugging...
-    let samples_per_pixel = 100.0; // TOOD
     let max_depth = max_depth;
 
     // Camera
