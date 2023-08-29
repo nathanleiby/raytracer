@@ -166,7 +166,13 @@ impl Hittable for HitList {
             (None, None) => Ordering::Greater,
             (Some(_x), None) => Ordering::Less,
             (None, Some(_y)) => Ordering::Greater,
-            (Some(x), Some(y)) => x.t.total_cmp(&y.t),
+            (Some(x), Some(y)) => {
+                if f64::min(x.t, y.t) == x.t {
+                    Ordering::Less
+                } else {
+                    Ordering::Greater
+                }
+            }
         });
 
         closest.unwrap()
